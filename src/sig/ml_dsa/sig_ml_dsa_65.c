@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-#include <stdlib.h>
-
 #include <oqs/sig_ml_dsa.h>
 #define LIBOQS_ENABLE_KEYGEN 0
 #define LIBOQS_ENABLE_SIGN 0
 #define LIBOQS_ENABLE_VERIFY 1
 #if defined(OQS_ENABLE_SIG_ml_dsa_65)
-OQS_SIG *OQS_SIG_ml_dsa_65_new(void) {
-
-	OQS_SIG *sig = OQS_MEM_malloc(sizeof(OQS_SIG));
+/* Bootloader: no-malloc implementation; caller provides OQS_SIG storage. */
+OQS_SIG *OQS_SIG_ml_dsa_65_new(OQS_SIG *sig) {
 	if (sig == NULL) {
 		return NULL;
 	}

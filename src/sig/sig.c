@@ -1577,7 +1577,10 @@ OQS_API OQS_SIG *OQS_SIG_new(const char *method_name) {
 	
 	else if (0 == strcasecmp(method_name, OQS_SIG_alg_ml_dsa_65)) {
 #ifdef OQS_ENABLE_SIG_ml_dsa_65
-		return OQS_SIG_ml_dsa_65_new();
+		{
+			static OQS_SIG sig_storage;
+			return OQS_SIG_ml_dsa_65_new(&sig_storage);
+		}
 #else
 		return NULL;
 #endif
