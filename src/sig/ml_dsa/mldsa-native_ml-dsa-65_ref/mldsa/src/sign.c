@@ -38,6 +38,10 @@
 #include "sign.h"
 #include "symmetric.h"
 
+#define ENABLE_KEYGEN 1
+#define ENABLE_SIGN 1
+#define ENABLE_VERIFY 1
+
 /* Parameter set namespacing
  * This is to facilitate building multiple instances
  * of mldsa-native (e.g. with varying parameter sets)
@@ -289,6 +293,7 @@ cleanup:
   return ret;
 }
 
+#if ENABLE_KEYGEN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_keypair_internal(uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
@@ -362,8 +367,20 @@ cleanup:
   /* Do this after freeing all temporaries. */
   return mld_check_pct(pk, sk, context);
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_keypair_internal(uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                              uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+                              const uint8_t seed[MLDSA_SEEDBYTES],
+                              MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
 #if !defined(MLD_CONFIG_NO_RANDOMIZED_API)
+#if ENABLE_KEYGEN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_keypair(uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
@@ -385,6 +402,16 @@ cleanup:
   mld_zeroize(seed, sizeof(seed));
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_keypair(uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                     uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+                     MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 #endif /* !MLD_CONFIG_NO_RANDOMIZED_API */
 
 /*************************************************
@@ -725,6 +752,7 @@ cleanup:
 
   return ret;
 }
+#if ENABLE_SIGN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_signature_internal(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
@@ -850,8 +878,23 @@ cleanup:
            2 * MLDSA_SEEDBYTES + MLDSA_TRBYTES + 2 * MLDSA_CRHBYTES, context);
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_signature_internal(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
+                                const uint8_t *m, size_t mlen,
+                                const uint8_t *pre, size_t prelen,
+                                const uint8_t rnd[MLDSA_RNDBYTES],
+                                const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+                                int externalmu,
+                                MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
 #if !defined(MLD_CONFIG_NO_RANDOMIZED_API)
+#if ENABLE_SIGN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_signature(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
@@ -911,9 +954,22 @@ cleanup:
 
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_signature(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
+                       const uint8_t *m, size_t mlen, const uint8_t *ctx,
+                       size_t ctxlen,
+                       const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+                       MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 #endif /* !MLD_CONFIG_NO_RANDOMIZED_API */
 
 #if !defined(MLD_CONFIG_NO_RANDOMIZED_API)
+#if ENABLE_SIGN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_signature_extmu(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
@@ -943,9 +999,21 @@ cleanup:
 
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_signature_extmu(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
+                             const uint8_t mu[MLDSA_CRHBYTES],
+                             const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+                             MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 #endif /* !MLD_CONFIG_NO_RANDOMIZED_API */
 
 #if !defined(MLD_CONFIG_NO_RANDOMIZED_API)
+#if ENABLE_SIGN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign(uint8_t *sm, size_t *smlen, const uint8_t *m, size_t mlen,
@@ -969,8 +1037,20 @@ int mld_sign(uint8_t *sm, size_t *smlen, const uint8_t *m, size_t mlen,
   *smlen += mlen;
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign(uint8_t *sm, size_t *smlen, const uint8_t *m, size_t mlen,
+             const uint8_t *ctx, size_t ctxlen,
+             const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+             MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 #endif /* !MLD_CONFIG_NO_RANDOMIZED_API */
 
+#if ENABLE_VERIFY
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
@@ -1098,7 +1178,21 @@ cleanup:
   MLD_FREE(buf, uint8_t, (MLDSA_K * MLDSA_POLYW1_PACKEDBYTES), context);
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
+                             const uint8_t *m, size_t mlen, const uint8_t *pre,
+                             size_t prelen,
+                             const uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                             int externalmu,
+                             MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
+#if ENABLE_VERIFY
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_verify(const uint8_t *sig, size_t siglen, const uint8_t *m,
@@ -1127,7 +1221,19 @@ cleanup:
 
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_verify(const uint8_t *sig, size_t siglen, const uint8_t *m,
+                    size_t mlen, const uint8_t *ctx, size_t ctxlen,
+                    const uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                    MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
+#if ENABLE_VERIFY
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_verify_extmu(const uint8_t *sig, size_t siglen,
@@ -1138,7 +1244,19 @@ int mld_sign_verify_extmu(const uint8_t *sig, size_t siglen,
   return mld_sign_verify_internal(sig, siglen, mu, MLDSA_CRHBYTES, NULL, 0, pk,
                                   1, context);
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_verify_extmu(const uint8_t *sig, size_t siglen,
+                          const uint8_t mu[MLDSA_CRHBYTES],
+                          const uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                          MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
+#if ENABLE_VERIFY
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_open(uint8_t *m, size_t *mlen, const uint8_t *sm, size_t smlen,
@@ -1182,8 +1300,20 @@ cleanup:
 
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_open(uint8_t *m, size_t *mlen, const uint8_t *sm, size_t smlen,
+                  const uint8_t *ctx, size_t ctxlen,
+                  const uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                  MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
 
+#if ENABLE_SIGN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_signature_pre_hash_internal(
@@ -1224,7 +1354,21 @@ cleanup:
   mld_zeroize(pre, sizeof(pre));
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_signature_pre_hash_internal(
+    uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen, const uint8_t *ph,
+    size_t phlen, const uint8_t *ctx, size_t ctxlen,
+    const uint8_t rnd[MLDSA_RNDBYTES],
+    const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES], int hashalg,
+    MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
+#if ENABLE_VERIFY
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_verify_pre_hash_internal(
@@ -1253,7 +1397,20 @@ cleanup:
   mld_zeroize(pre, sizeof(pre));
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_verify_pre_hash_internal(
+    const uint8_t *sig, size_t siglen, const uint8_t *ph, size_t phlen,
+    const uint8_t *ctx, size_t ctxlen,
+    const uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES], int hashalg,
+    MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
+#if ENABLE_SIGN
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_signature_pre_hash_shake256(
@@ -1273,7 +1430,21 @@ int mld_sign_signature_pre_hash_shake256(
   mld_zeroize(ph, sizeof(ph));
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_signature_pre_hash_shake256(
+    uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen, const uint8_t *m,
+    size_t mlen, const uint8_t *ctx, size_t ctxlen,
+    const uint8_t rnd[MLDSA_RNDBYTES],
+    const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+    MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
+#if ENABLE_VERIFY
 MLD_MUST_CHECK_RETURN_VALUE
 MLD_EXTERNAL_API
 int mld_sign_verify_pre_hash_shake256(
@@ -1292,6 +1463,18 @@ int mld_sign_verify_pre_hash_shake256(
   mld_zeroize(ph, sizeof(ph));
   return ret;
 }
+#else
+MLD_MUST_CHECK_RETURN_VALUE
+MLD_EXTERNAL_API
+int mld_sign_verify_pre_hash_shake256(
+    const uint8_t *sig, size_t siglen, const uint8_t *m, size_t mlen,
+    const uint8_t *ctx, size_t ctxlen,
+    const uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+    MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
 
 #define MLD_PRE_HASH_OID_LEN 11
@@ -1419,6 +1602,7 @@ size_t mld_prepare_domain_separation_prefix(
   return 2 + ctxlen + MLD_PRE_HASH_OID_LEN + phlen;
 }
 
+#if ENABLE_KEYGEN
 MLD_EXTERNAL_API
 int mld_sign_pk_from_sk(uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
                         const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
@@ -1493,6 +1677,15 @@ cleanup:
 
   return ret;
 }
+#else
+MLD_EXTERNAL_API
+int mld_sign_pk_from_sk(uint8_t pk[MLDSA_CRYPTO_PUBLICKEYBYTES],
+                        const uint8_t sk[MLDSA_CRYPTO_SECRETKEYBYTES],
+                        MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
+{
+  return 0;
+}
+#endif
 
 /* To facilitate single-compilation-unit (SCU) builds, undefine all macros.
  * Don't modify by hand -- this is auto-generated by scripts/autogen. */

@@ -3,7 +3,9 @@
 #include <stdlib.h>
 
 #include <oqs/sig_ml_dsa.h>
-
+#define LIBOQS_ENABLE_KEYGEN 0
+#define LIBOQS_ENABLE_SIGN 0
+#define LIBOQS_ENABLE_VERIFY 1
 #if defined(OQS_ENABLE_SIG_ml_dsa_65)
 OQS_SIG *OQS_SIG_ml_dsa_65_new(void) {
 
@@ -23,12 +25,17 @@ OQS_SIG *OQS_SIG_ml_dsa_65_new(void) {
 	sig->length_secret_key = OQS_SIG_ml_dsa_65_length_secret_key;
 	sig->length_signature = OQS_SIG_ml_dsa_65_length_signature;
 
+#if LIBOQS_ENABLE_KEYGEN
 	sig->keypair = OQS_SIG_ml_dsa_65_keypair;
+#endif
+#if LIBOQS_ENABLE_SIGN
 	sig->sign = OQS_SIG_ml_dsa_65_sign;
-	sig->verify = OQS_SIG_ml_dsa_65_verify;
 	sig->sign_with_ctx_str = OQS_SIG_ml_dsa_65_sign_with_ctx_str;
+#endif
+#if LIBOQS_ENABLE_VERIFY
+	sig->verify = OQS_SIG_ml_dsa_65_verify;
 	sig->verify_with_ctx_str = OQS_SIG_ml_dsa_65_verify_with_ctx_str;
-
+#endif
 	return sig;
 }
 
