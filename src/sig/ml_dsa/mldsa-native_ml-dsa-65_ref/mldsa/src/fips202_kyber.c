@@ -745,7 +745,7 @@ void shake256(uint8_t *out, size_t outlen, const uint8_t *in, size_t inlen)
 void sha3_256(uint8_t h[32], const uint8_t *in, size_t inlen)
 {
   unsigned int i;
-  uint64_t s[25];
+  static uint64_t s[25];
 
   keccak_absorb_once(s, SHA3_256_RATE, in, inlen, 0x06);
   KeccakF1600_StatePermute(s);
@@ -765,7 +765,7 @@ void sha3_256(uint8_t h[32], const uint8_t *in, size_t inlen)
 void sha3_512(uint8_t h[64], const uint8_t *in, size_t inlen)
 {
   unsigned int i;
-  uint64_t s[25];
+  static uint64_t s[25];
 
   keccak_absorb_once(s, SHA3_512_RATE, in, inlen, 0x06);
   KeccakF1600_StatePermute(s);

@@ -4,6 +4,9 @@
 #define LIBOQS_ENABLE_KEYGEN 0
 #define LIBOQS_ENABLE_SIGN 0
 #define LIBOQS_ENABLE_VERIFY 1
+#if defined(OQS_ESP_BOOTLOADER_DEBUG) && defined(CONFIG_IDF_TARGET)
+#include "esp_rom_sys.h"
+#endif
 #if defined(OQS_ENABLE_SIG_ml_dsa_65)
 /* Bootloader: no-malloc implementation; caller provides OQS_SIG storage. */
 OQS_SIG *OQS_SIG_ml_dsa_65_new(OQS_SIG *sig) {
@@ -105,6 +108,9 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_sign(uint8_t *signature, size_t *signature_
 }
 
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key) {
+#if defined(OQS_ESP_BOOTLOADER_DEBUG) && defined(CONFIG_IDF_TARGET)
+	esp_rom_printf("[OQS] ml_dsa_65_verify entry\n");
+#endif
 #if defined(OQS_ENABLE_SIG_ml_dsa_65_x86_64)
 #if defined(OQS_DIST_BUILD)
 	if (OQS_CPU_has_extension(OQS_CPU_EXT_AVX2) && OQS_CPU_has_extension(OQS_CPU_EXT_BMI2) && OQS_CPU_has_extension(OQS_CPU_EXT_POPCNT)) {
@@ -126,7 +132,13 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_verify(const uint8_t *message, size_t messa
 	}
 #endif /* OQS_DIST_BUILD */
 #else
-	return (OQS_STATUS) PQCP_MLDSA_NATIVE_MLDSA65_C_verify(signature, signature_len, message, message_len, NULL, 0, public_key);
+	{
+		int ret = PQCP_MLDSA_NATIVE_MLDSA65_C_verify(signature, signature_len, message, message_len, NULL, 0, public_key);
+#if defined(OQS_ESP_BOOTLOADER_DEBUG) && defined(CONFIG_IDF_TARGET)
+		esp_rom_printf("[OQS] ml_dsa_65_verify exit ret=%d\n", ret);
+#endif
+		return (OQS_STATUS) ret;
+	}
 #endif
 }
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
