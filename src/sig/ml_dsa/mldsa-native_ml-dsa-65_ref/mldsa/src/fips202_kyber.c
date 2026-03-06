@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include "fips202_kyber.h"
 
 #define NROUNDS 24
@@ -20,12 +21,8 @@
 * Returns the loaded 64-bit unsigned integer
 **************************************************/
 static uint64_t load64(const uint8_t x[8]) {
-  unsigned int i;
-  uint64_t r = 0;
-
-  for(i=0;i<8;i++)
-    r |= (uint64_t)x[i] << 8*i;
-
+  uint64_t r;
+  memcpy(&r, x, 8);
   return r;
 }
 
@@ -38,10 +35,7 @@ static uint64_t load64(const uint8_t x[8]) {
 *              - uint64_t u: input 64-bit unsigned integer
 **************************************************/
 static void store64(uint8_t x[8], uint64_t u) {
-  unsigned int i;
-
-  for(i=0;i<8;i++)
-    x[i] = u >> 8*i;
+  memcpy(x, &u, 8);
 }
 
 /* Keccak round constants */
@@ -72,275 +66,180 @@ static const uint64_t KeccakF_RoundConstants[NROUNDS] = {
   (uint64_t)0x8000000080008008ULL
 };
 
+/* wolfSSL-style Keccak-f[1600] with double buffer (s and n) to reduce
+ * register pressure on 32-bit RISC-V; same round constants and logic. */
+
+#define ROTL64_KECCAK(a, n) (((a) << (n)) | ((a) >> (64 - (n))))
+
+/* Rho-pi indices (lane permutation) */
+#define KI_0   6
+#define KI_1  12
+#define KI_2  18
+#define KI_3  24
+#define KI_4   3
+#define KI_5   9
+#define KI_6  10
+#define KI_7  16
+#define KI_8  22
+#define KI_9   1
+#define KI_10  7
+#define KI_11 13
+#define KI_12 19
+#define KI_13 20
+#define KI_14  4
+#define KI_15  5
+#define KI_16 11
+#define KI_17 17
+#define KI_18 23
+#define KI_19  2
+#define KI_20  8
+#define KI_21 14
+#define KI_22 15
+#define KI_23 21
+
+/* Rho rotation amounts (bits) */
+#define KR_0  44
+#define KR_1  43
+#define KR_2  21
+#define KR_3  14
+#define KR_4  28
+#define KR_5  20
+#define KR_6   3
+#define KR_7  45
+#define KR_8  61
+#define KR_9   1
+#define KR_10  6
+#define KR_11 25
+#define KR_12  8
+#define KR_13 18
+#define KR_14 27
+#define KR_15 36
+#define KR_16 10
+#define KR_17 15
+#define KR_18 56
+#define KR_19 62
+#define KR_20 55
+#define KR_21 39
+#define KR_22 41
+#define KR_23  2
+
+#define S_KECCAK(s1, i) ROTL64_KECCAK((s1)[KI_##i], KR_##i)
+
+/* Theta: mix columns (in-place). */
+#define COL_MIX_KECCAK(s, b, t) do { \
+    (b)[0] = (s)[0] ^ (s)[5] ^ (s)[10] ^ (s)[15] ^ (s)[20]; \
+    (b)[1] = (s)[1] ^ (s)[6] ^ (s)[11] ^ (s)[16] ^ (s)[21]; \
+    (b)[2] = (s)[2] ^ (s)[7] ^ (s)[12] ^ (s)[17] ^ (s)[22]; \
+    (b)[3] = (s)[3] ^ (s)[8] ^ (s)[13] ^ (s)[18] ^ (s)[23]; \
+    (b)[4] = (s)[4] ^ (s)[9] ^ (s)[14] ^ (s)[19] ^ (s)[24]; \
+    (t) = (b)[4] ^ ROTL64_KECCAK((b)[1], 1); \
+    (s)[ 0] ^= (t); (s)[ 5] ^= (t); (s)[10] ^= (t); (s)[15] ^= (t); (s)[20] ^= (t); \
+    (t) = (b)[0] ^ ROTL64_KECCAK((b)[2], 1); \
+    (s)[ 1] ^= (t); (s)[ 6] ^= (t); (s)[11] ^= (t); (s)[16] ^= (t); (s)[21] ^= (t); \
+    (t) = (b)[1] ^ ROTL64_KECCAK((b)[3], 1); \
+    (s)[ 2] ^= (t); (s)[ 7] ^= (t); (s)[12] ^= (t); (s)[17] ^= (t); (s)[22] ^= (t); \
+    (t) = (b)[2] ^ ROTL64_KECCAK((b)[4], 1); \
+    (s)[ 3] ^= (t); (s)[ 8] ^= (t); (s)[13] ^= (t); (s)[18] ^= (t); (s)[23] ^= (t); \
+    (t) = (b)[3] ^ ROTL64_KECCAK((b)[0], 1); \
+    (s)[ 4] ^= (t); (s)[ 9] ^= (t); (s)[14] ^= (t); (s)[19] ^= (t); (s)[24] ^= (t); \
+} while (0)
+
+/* Rho-pi-chi: read s1, write s2. Chi without ANDN: a^(~b&c) = a^(c&(b^c)). */
+#define ROW_MIX_KECCAK(s2, s1, b, t12, t34) do { \
+    (b)[0] = (s1)[0]; \
+    (b)[1] = S_KECCAK((s1), 0); \
+    (b)[2] = S_KECCAK((s1), 1); \
+    (b)[3] = S_KECCAK((s1), 2); \
+    (b)[4] = S_KECCAK((s1), 3); \
+    (t12) = ((b)[1] ^ (b)[2]); (t34) = ((b)[3] ^ (b)[4]); \
+    (s2)[0] = (b)[0] ^ ((b)[2] & (t12)); \
+    (s2)[1] = (t12) ^ ((b)[2] | (b)[3]); \
+    (s2)[2] = (b)[2] ^ ((b)[4] & (t34)); \
+    (s2)[3] = (t34) ^ ((b)[4] | (b)[0]); \
+    (s2)[4] = (b)[4] ^ ((b)[1] & ((b)[0] ^ (b)[1])); \
+    (b)[0] = S_KECCAK((s1), 4); \
+    (b)[1] = S_KECCAK((s1), 5); \
+    (b)[2] = S_KECCAK((s1), 6); \
+    (b)[3] = S_KECCAK((s1), 7); \
+    (b)[4] = S_KECCAK((s1), 8); \
+    (t12) = ((b)[1] ^ (b)[2]); (t34) = ((b)[3] ^ (b)[4]); \
+    (s2)[5] = (b)[0] ^ ((b)[2] & (t12)); \
+    (s2)[6] = (t12) ^ ((b)[2] | (b)[3]); \
+    (s2)[7] = (b)[2] ^ ((b)[4] & (t34)); \
+    (s2)[8] = (t34) ^ ((b)[4] | (b)[0]); \
+    (s2)[9] = (b)[4] ^ ((b)[1] & ((b)[0] ^ (b)[1])); \
+    (b)[0] = S_KECCAK((s1), 9); \
+    (b)[1] = S_KECCAK((s1), 10); \
+    (b)[2] = S_KECCAK((s1), 11); \
+    (b)[3] = S_KECCAK((s1), 12); \
+    (b)[4] = S_KECCAK((s1), 13); \
+    (t12) = ((b)[1] ^ (b)[2]); (t34) = ((b)[3] ^ (b)[4]); \
+    (s2)[10] = (b)[0] ^ ((b)[2] & (t12)); \
+    (s2)[11] = (t12) ^ ((b)[2] | (b)[3]); \
+    (s2)[12] = (b)[2] ^ ((b)[4] & (t34)); \
+    (s2)[13] = (t34) ^ ((b)[4] | (b)[0]); \
+    (s2)[14] = (b)[4] ^ ((b)[1] & ((b)[0] ^ (b)[1])); \
+    (b)[0] = S_KECCAK((s1), 14); \
+    (b)[1] = S_KECCAK((s1), 15); \
+    (b)[2] = S_KECCAK((s1), 16); \
+    (b)[3] = S_KECCAK((s1), 17); \
+    (b)[4] = S_KECCAK((s1), 18); \
+    (t12) = ((b)[1] ^ (b)[2]); (t34) = ((b)[3] ^ (b)[4]); \
+    (s2)[15] = (b)[0] ^ ((b)[2] & (t12)); \
+    (s2)[16] = (t12) ^ ((b)[2] | (b)[3]); \
+    (s2)[17] = (b)[2] ^ ((b)[4] & (t34)); \
+    (s2)[18] = (t34) ^ ((b)[4] | (b)[0]); \
+    (s2)[19] = (b)[4] ^ ((b)[1] & ((b)[0] ^ (b)[1])); \
+    (b)[0] = S_KECCAK((s1), 19); \
+    (b)[1] = S_KECCAK((s1), 20); \
+    (b)[2] = S_KECCAK((s1), 21); \
+    (b)[3] = S_KECCAK((s1), 22); \
+    (b)[4] = S_KECCAK((s1), 23); \
+    (t12) = ((b)[1] ^ (b)[2]); (t34) = ((b)[3] ^ (b)[4]); \
+    (s2)[20] = (b)[0] ^ ((b)[2] & (t12)); \
+    (s2)[21] = (t12) ^ ((b)[2] | (b)[3]); \
+    (s2)[22] = (b)[2] ^ ((b)[4] & (t34)); \
+    (s2)[23] = (t34) ^ ((b)[4] | (b)[0]); \
+    (s2)[24] = (b)[4] ^ ((b)[1] & ((b)[0] ^ (b)[1])); \
+} while (0)
+
+/* Optional Keccak block counter for verify matrix_expand (define MLD_KECCAK_COUNT_VERIFY).
+ * Count = one per KeccakF1600_StatePermute() call (squeezeblocks does 1 per block; absorb can add more).
+ * Serial path: 40 polys * 5 blocks initial = 200, plus 0..40 from rejection loop. Expected >= 200.
+ * WolfSSL uses 5 blocks; if you see 150, the serial path was using 3 blocks (40*3 + 30 rejection). */
+#if defined(MLD_KECCAK_COUNT_VERIFY)
+static uint64_t s_keccak_permute_count = 0;
+static uint64_t s_squeeze_blocks_requested = 0; /* total nblocks passed to shake128_squeezeblocks */
+#endif
+
 /*************************************************
 * Name:        KeccakF1600_StatePermute
 *
-* Description: The Keccak F1600 Permutation
+* Description: The Keccak F1600 Permutation (wolfSSL-style double buffer
+*              for better register usage on 32-bit RISC-V).
+*              Inlined on ESP32/RISC-V to cut call overhead in hot paths.
 *
 * Arguments:   - uint64_t *state: pointer to input/output Keccak state
 **************************************************/
-static void KeccakF1600_StatePermute(uint64_t state[25])
+static inline void KeccakF1600_StatePermute(uint64_t state[25])
 {
-        int round;
+  uint64_t n[25];
+  uint64_t b[5];
+  uint64_t t0, t12, t34;
+  unsigned int i;
+#if defined(MLD_KECCAK_COUNT_VERIFY)
+  s_keccak_permute_count++;
+#endif
 
-        uint64_t Aba, Abe, Abi, Abo, Abu;
-        uint64_t Aga, Age, Agi, Ago, Agu;
-        uint64_t Aka, Ake, Aki, Ako, Aku;
-        uint64_t Ama, Ame, Ami, Amo, Amu;
-        uint64_t Asa, Ase, Asi, Aso, Asu;
-        uint64_t BCa, BCe, BCi, BCo, BCu;
-        uint64_t Da, De, Di, Do, Du;
-        uint64_t Eba, Ebe, Ebi, Ebo, Ebu;
-        uint64_t Ega, Ege, Egi, Ego, Egu;
-        uint64_t Eka, Eke, Eki, Eko, Eku;
-        uint64_t Ema, Eme, Emi, Emo, Emu;
-        uint64_t Esa, Ese, Esi, Eso, Esu;
+  for (i = 0; i < 24; i += 2) {
+    COL_MIX_KECCAK(state, b, t0);
+    ROW_MIX_KECCAK(n, state, b, t12, t34);
+    n[0] ^= KeccakF_RoundConstants[i];
 
-        //copyFromState(A, state)
-        Aba = state[ 0];
-        Abe = state[ 1];
-        Abi = state[ 2];
-        Abo = state[ 3];
-        Abu = state[ 4];
-        Aga = state[ 5];
-        Age = state[ 6];
-        Agi = state[ 7];
-        Ago = state[ 8];
-        Agu = state[ 9];
-        Aka = state[10];
-        Ake = state[11];
-        Aki = state[12];
-        Ako = state[13];
-        Aku = state[14];
-        Ama = state[15];
-        Ame = state[16];
-        Ami = state[17];
-        Amo = state[18];
-        Amu = state[19];
-        Asa = state[20];
-        Ase = state[21];
-        Asi = state[22];
-        Aso = state[23];
-        Asu = state[24];
-
-        for(round = 0; round < NROUNDS; round += 2) {
-            //    prepareTheta
-            BCa = Aba^Aga^Aka^Ama^Asa;
-            BCe = Abe^Age^Ake^Ame^Ase;
-            BCi = Abi^Agi^Aki^Ami^Asi;
-            BCo = Abo^Ago^Ako^Amo^Aso;
-            BCu = Abu^Agu^Aku^Amu^Asu;
-
-            //thetaRhoPiChiIotaPrepareTheta(round, A, E)
-            Da = BCu^ROL(BCe, 1);
-            De = BCa^ROL(BCi, 1);
-            Di = BCe^ROL(BCo, 1);
-            Do = BCi^ROL(BCu, 1);
-            Du = BCo^ROL(BCa, 1);
-
-            Aba ^= Da;
-            BCa = Aba;
-            Age ^= De;
-            BCe = ROL(Age, 44);
-            Aki ^= Di;
-            BCi = ROL(Aki, 43);
-            Amo ^= Do;
-            BCo = ROL(Amo, 21);
-            Asu ^= Du;
-            BCu = ROL(Asu, 14);
-            Eba =   BCa ^((~BCe)&  BCi );
-            Eba ^= (uint64_t)KeccakF_RoundConstants[round];
-            Ebe =   BCe ^((~BCi)&  BCo );
-            Ebi =   BCi ^((~BCo)&  BCu );
-            Ebo =   BCo ^((~BCu)&  BCa );
-            Ebu =   BCu ^((~BCa)&  BCe );
-
-            Abo ^= Do;
-            BCa = ROL(Abo, 28);
-            Agu ^= Du;
-            BCe = ROL(Agu, 20);
-            Aka ^= Da;
-            BCi = ROL(Aka,  3);
-            Ame ^= De;
-            BCo = ROL(Ame, 45);
-            Asi ^= Di;
-            BCu = ROL(Asi, 61);
-            Ega =   BCa ^((~BCe)&  BCi );
-            Ege =   BCe ^((~BCi)&  BCo );
-            Egi =   BCi ^((~BCo)&  BCu );
-            Ego =   BCo ^((~BCu)&  BCa );
-            Egu =   BCu ^((~BCa)&  BCe );
-
-            Abe ^= De;
-            BCa = ROL(Abe,  1);
-            Agi ^= Di;
-            BCe = ROL(Agi,  6);
-            Ako ^= Do;
-            BCi = ROL(Ako, 25);
-            Amu ^= Du;
-            BCo = ROL(Amu,  8);
-            Asa ^= Da;
-            BCu = ROL(Asa, 18);
-            Eka =   BCa ^((~BCe)&  BCi );
-            Eke =   BCe ^((~BCi)&  BCo );
-            Eki =   BCi ^((~BCo)&  BCu );
-            Eko =   BCo ^((~BCu)&  BCa );
-            Eku =   BCu ^((~BCa)&  BCe );
-
-            Abu ^= Du;
-            BCa = ROL(Abu, 27);
-            Aga ^= Da;
-            BCe = ROL(Aga, 36);
-            Ake ^= De;
-            BCi = ROL(Ake, 10);
-            Ami ^= Di;
-            BCo = ROL(Ami, 15);
-            Aso ^= Do;
-            BCu = ROL(Aso, 56);
-            Ema =   BCa ^((~BCe)&  BCi );
-            Eme =   BCe ^((~BCi)&  BCo );
-            Emi =   BCi ^((~BCo)&  BCu );
-            Emo =   BCo ^((~BCu)&  BCa );
-            Emu =   BCu ^((~BCa)&  BCe );
-
-            Abi ^= Di;
-            BCa = ROL(Abi, 62);
-            Ago ^= Do;
-            BCe = ROL(Ago, 55);
-            Aku ^= Du;
-            BCi = ROL(Aku, 39);
-            Ama ^= Da;
-            BCo = ROL(Ama, 41);
-            Ase ^= De;
-            BCu = ROL(Ase,  2);
-            Esa =   BCa ^((~BCe)&  BCi );
-            Ese =   BCe ^((~BCi)&  BCo );
-            Esi =   BCi ^((~BCo)&  BCu );
-            Eso =   BCo ^((~BCu)&  BCa );
-            Esu =   BCu ^((~BCa)&  BCe );
-
-            //    prepareTheta
-            BCa = Eba^Ega^Eka^Ema^Esa;
-            BCe = Ebe^Ege^Eke^Eme^Ese;
-            BCi = Ebi^Egi^Eki^Emi^Esi;
-            BCo = Ebo^Ego^Eko^Emo^Eso;
-            BCu = Ebu^Egu^Eku^Emu^Esu;
-
-            //thetaRhoPiChiIotaPrepareTheta(round+1, E, A)
-            Da = BCu^ROL(BCe, 1);
-            De = BCa^ROL(BCi, 1);
-            Di = BCe^ROL(BCo, 1);
-            Do = BCi^ROL(BCu, 1);
-            Du = BCo^ROL(BCa, 1);
-
-            Eba ^= Da;
-            BCa = Eba;
-            Ege ^= De;
-            BCe = ROL(Ege, 44);
-            Eki ^= Di;
-            BCi = ROL(Eki, 43);
-            Emo ^= Do;
-            BCo = ROL(Emo, 21);
-            Esu ^= Du;
-            BCu = ROL(Esu, 14);
-            Aba =   BCa ^((~BCe)&  BCi );
-            Aba ^= (uint64_t)KeccakF_RoundConstants[round+1];
-            Abe =   BCe ^((~BCi)&  BCo );
-            Abi =   BCi ^((~BCo)&  BCu );
-            Abo =   BCo ^((~BCu)&  BCa );
-            Abu =   BCu ^((~BCa)&  BCe );
-
-            Ebo ^= Do;
-            BCa = ROL(Ebo, 28);
-            Egu ^= Du;
-            BCe = ROL(Egu, 20);
-            Eka ^= Da;
-            BCi = ROL(Eka, 3);
-            Eme ^= De;
-            BCo = ROL(Eme, 45);
-            Esi ^= Di;
-            BCu = ROL(Esi, 61);
-            Aga =   BCa ^((~BCe)&  BCi );
-            Age =   BCe ^((~BCi)&  BCo );
-            Agi =   BCi ^((~BCo)&  BCu );
-            Ago =   BCo ^((~BCu)&  BCa );
-            Agu =   BCu ^((~BCa)&  BCe );
-
-            Ebe ^= De;
-            BCa = ROL(Ebe, 1);
-            Egi ^= Di;
-            BCe = ROL(Egi, 6);
-            Eko ^= Do;
-            BCi = ROL(Eko, 25);
-            Emu ^= Du;
-            BCo = ROL(Emu, 8);
-            Esa ^= Da;
-            BCu = ROL(Esa, 18);
-            Aka =   BCa ^((~BCe)&  BCi );
-            Ake =   BCe ^((~BCi)&  BCo );
-            Aki =   BCi ^((~BCo)&  BCu );
-            Ako =   BCo ^((~BCu)&  BCa );
-            Aku =   BCu ^((~BCa)&  BCe );
-
-            Ebu ^= Du;
-            BCa = ROL(Ebu, 27);
-            Ega ^= Da;
-            BCe = ROL(Ega, 36);
-            Eke ^= De;
-            BCi = ROL(Eke, 10);
-            Emi ^= Di;
-            BCo = ROL(Emi, 15);
-            Eso ^= Do;
-            BCu = ROL(Eso, 56);
-            Ama =   BCa ^((~BCe)&  BCi );
-            Ame =   BCe ^((~BCi)&  BCo );
-            Ami =   BCi ^((~BCo)&  BCu );
-            Amo =   BCo ^((~BCu)&  BCa );
-            Amu =   BCu ^((~BCa)&  BCe );
-
-            Ebi ^= Di;
-            BCa = ROL(Ebi, 62);
-            Ego ^= Do;
-            BCe = ROL(Ego, 55);
-            Eku ^= Du;
-            BCi = ROL(Eku, 39);
-            Ema ^= Da;
-            BCo = ROL(Ema, 41);
-            Ese ^= De;
-            BCu = ROL(Ese, 2);
-            Asa =   BCa ^((~BCe)&  BCi );
-            Ase =   BCe ^((~BCi)&  BCo );
-            Asi =   BCi ^((~BCo)&  BCu );
-            Aso =   BCo ^((~BCu)&  BCa );
-            Asu =   BCu ^((~BCa)&  BCe );
-        }
-
-        //copyToState(state, A)
-        state[ 0] = Aba;
-        state[ 1] = Abe;
-        state[ 2] = Abi;
-        state[ 3] = Abo;
-        state[ 4] = Abu;
-        state[ 5] = Aga;
-        state[ 6] = Age;
-        state[ 7] = Agi;
-        state[ 8] = Ago;
-        state[ 9] = Agu;
-        state[10] = Aka;
-        state[11] = Ake;
-        state[12] = Aki;
-        state[13] = Ako;
-        state[14] = Aku;
-        state[15] = Ama;
-        state[16] = Ame;
-        state[17] = Ami;
-        state[18] = Amo;
-        state[19] = Amu;
-        state[20] = Asa;
-        state[21] = Ase;
-        state[22] = Asi;
-        state[23] = Aso;
-        state[24] = Asu;
+    COL_MIX_KECCAK(n, b, t0);
+    ROW_MIX_KECCAK(state, n, b, t12, t34);
+    state[0] ^= KeccakF_RoundConstants[i + 1];
+  }
 }
 
 /*************************************************
@@ -352,10 +251,26 @@ static void KeccakF1600_StatePermute(uint64_t state[25])
 **************************************************/
 static void keccak_init(uint64_t s[25])
 {
-  unsigned int i;
-  for(i=0;i<25;i++)
-    s[i] = 0;
+  memset(s, 0, 25 * sizeof(uint64_t));
 }
+
+#if defined(MLD_KECCAK_COUNT_VERIFY)
+void mld_keccak_count_reset(void)
+{
+  s_keccak_permute_count = 0;
+  s_squeeze_blocks_requested = 0;
+}
+
+uint64_t mld_keccak_count_get(void)
+{
+  return s_keccak_permute_count;
+}
+
+uint64_t mld_keccak_squeeze_blocks_requested_get(void)
+{
+  return s_squeeze_blocks_requested;
+}
+#endif
 
 /*************************************************
 * Name:        keccak_absorb
@@ -378,16 +293,25 @@ static unsigned int keccak_absorb(uint64_t s[25],
 {
   unsigned int i;
 
-  while(pos+inlen >= r) {
-    for(i=pos;i<r;i++)
-      s[i/8] ^= (uint64_t)*in++ << 8*(i%8);
-    inlen -= r-pos;
-    KeccakF1600_StatePermute(s);
-    pos = 0;
+  while (pos + inlen >= r) {
+    if (pos == 0) {
+      /* Full block: lane-oriented absorb (like wolfSSL xorbuf) */
+      for (i = 0; i < r / 8; i++)
+        s[i] ^= load64(in + 8 * i);
+      in += r;
+      inlen -= r;
+      KeccakF1600_StatePermute(s);
+    } else {
+      for (i = pos; i < r; i++)
+        s[i / 8] ^= (uint64_t)*in++ << 8 * (i % 8);
+      inlen -= (r - pos);
+      KeccakF1600_StatePermute(s);
+      pos = 0;
+    }
   }
 
-  for(i=pos;i<pos+inlen;i++)
-    s[i/8] ^= (uint64_t)*in++ << 8*(i%8);
+  for (i = pos; (size_t)(i - pos) < inlen; i++)
+    s[i / 8] ^= (uint64_t)*in++ << 8 * (i % 8);
 
   return i;
 }
@@ -431,14 +355,30 @@ static unsigned int keccak_squeeze(uint8_t *out,
 {
   unsigned int i;
 
-  while(outlen) {
-    if(pos == r) {
+  /* Fast path: output full blocks with single memcpy (like wolfSSL XMEMCPY(out, s, rate)) */
+  while (outlen >= r && pos == 0) {
+    KeccakF1600_StatePermute(s);
+    memcpy(out, s, r);
+    out += r;
+    outlen -= r;
+  }
+
+  /* Remainder: full blocks with memcpy when pos==0, else byte-by-byte */
+  while (outlen) {
+    if (pos == r) {
       KeccakF1600_StatePermute(s);
       pos = 0;
     }
-    for(i=pos;i < r && i < pos+outlen; i++)
-      *out++ = s[i/8] >> 8*(i%8);
-    outlen -= i-pos;
+    if (pos == 0 && outlen >= r) {
+      memcpy(out, s, r);
+      out += r;
+      outlen -= r;
+      pos = r; /* next iteration will permute */
+      continue;
+    }
+    for (i = pos; i < r && (size_t)(i - pos) < outlen; i++)
+      *out++ = (uint8_t)(s[i / 8] >> 8 * (i % 8));
+    outlen -= i - pos;
     pos = i;
   }
 
@@ -466,22 +406,24 @@ static void keccak_absorb_once(uint64_t s[25],
 {
   unsigned int i;
 
-  for(i=0;i<25;i++)
-    s[i] = 0;
+  memset(s, 0, 25 * sizeof(uint64_t));
 
-  while(inlen >= r) {
-    for(i=0;i<r/8;i++)
-      s[i] ^= load64(in+8*i);
+  while (inlen >= r) {
+    for (i = 0; i < r / 8; i++)
+      s[i] ^= load64(in + 8 * i);
     in += r;
     inlen -= r;
     KeccakF1600_StatePermute(s);
   }
 
-  for(i=0;i<inlen;i++)
-    s[i/8] ^= (uint64_t)in[i] << 8*(i%8);
+  /* Tail: lane-oriented for complete 8-byte chunks, then byte for remainder */
+  for (i = 0; i + 8 <= inlen; i += 8)
+    s[i / 8] ^= load64(in + i);
+  for (; i < inlen; i++)
+    s[i / 8] ^= (uint64_t)in[i] << 8 * (i % 8);
 
-  s[i/8] ^= (uint64_t)p << 8*(i%8);
-  s[(r-1)/8] ^= 1ULL << 63;
+  s[i / 8] ^= (uint64_t)p << 8 * (i % 8);
+  s[(r - 1) / 8] ^= 1ULL << 63;
 }
 
 /*************************************************
@@ -502,12 +444,9 @@ static void keccak_squeezeblocks(uint8_t *out,
                                  uint64_t s[25],
                                  unsigned int r)
 {
-  unsigned int i;
-
-  while(nblocks) {
+  while (nblocks) {
     KeccakF1600_StatePermute(s);
-    for(i=0;i<r/8;i++)
-      store64(out+8*i, s[i]);
+    memcpy(out, s, r);
     out += r;
     nblocks -= 1;
   }
@@ -597,6 +536,9 @@ void shake128_absorb_once(keccak_state *state, const uint8_t *in, size_t inlen)
 **************************************************/
 void shake128_squeezeblocks(uint8_t *out, size_t nblocks, keccak_state *state)
 {
+#if defined(MLD_KECCAK_COUNT_VERIFY)
+  s_squeeze_blocks_requested += nblocks;
+#endif
   keccak_squeezeblocks(out, nblocks, state->s, SHAKE128_RATE);
 }
 

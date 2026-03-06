@@ -275,6 +275,199 @@ __contract__(
   }
 }
 
+#if defined(MLD_SYS_RISCV32)
+static void mld_poly_ntt_riscv32(mld_poly *a)
+{
+  int32_t *r = a->coeffs;
+  unsigned int j, k;
+  int32_t t0, t1, t2, t3;
+  
+  k = 1;
+  for (j = 0; j < MLDSA_N / 8; j++) {
+    int32_t r0 = r[j +   0];
+    int32_t r1 = r[j +  32];
+    int32_t r2 = r[j +  64];
+    int32_t r3 = r[j +  96];
+    int32_t r4 = r[j + 128];
+    int32_t r5 = r[j + 160];
+    int32_t r6 = r[j + 192];
+    int32_t r7 = r[j + 224];
+    
+    int32_t zeta128 = mld_zetas[1];
+    int32_t zeta640 = mld_zetas[2];
+    int32_t zeta641 = mld_zetas[3];
+    
+    t0 = mld_fqmul(zeta128, r4);
+    t1 = mld_fqmul(zeta128, r5);
+    t2 = mld_fqmul(zeta128, r6);
+    t3 = mld_fqmul(zeta128, r7);
+    r4 = r0 - t0;
+    r5 = r1 - t1;
+    r6 = r2 - t2;
+    r7 = r3 - t3;
+    r0 += t0;
+    r1 += t1;
+    r2 += t2;
+    r3 += t3;
+    
+    t0 = mld_fqmul(zeta640, r2);
+    t1 = mld_fqmul(zeta640, r3);
+    t2 = mld_fqmul(zeta641, r6);
+    t3 = mld_fqmul(zeta641, r7);
+    r2 = r0 - t0;
+    r3 = r1 - t1;
+    r6 = r4 - t2;
+    r7 = r5 - t3;
+    r0 += t0;
+    r1 += t1;
+    r4 += t2;
+    r5 += t3;
+    
+    r[j +   0] = r0;
+    r[j +  32] = r1;
+    r[j +  64] = r2;
+    r[j +  96] = r3;
+    r[j + 128] = r4;
+    r[j + 160] = r5;
+    r[j + 192] = r6;
+    r[j + 224] = r7;
+  }
+  
+  for (j = 0; j < MLDSA_N; j += 64) {
+    unsigned int i;
+    int32_t zeta32  = mld_zetas[ 4 + j / 64];
+    int32_t zeta160 = mld_zetas[ 8 + j / 32 + 0];
+    int32_t zeta161 = mld_zetas[ 8 + j / 32 + 1];
+    int32_t zeta80  = mld_zetas[16 + j / 16 + 0];
+    int32_t zeta81  = mld_zetas[16 + j / 16 + 1];
+    int32_t zeta82  = mld_zetas[16 + j / 16 + 2];
+    int32_t zeta83  = mld_zetas[16 + j / 16 + 3];
+    
+    for (i = 0; i < 8; i++) {
+      int32_t r0 = r[j + i +  0];
+      int32_t r1 = r[j + i +  8];
+      int32_t r2 = r[j + i + 16];
+      int32_t r3 = r[j + i + 24];
+      int32_t r4 = r[j + i + 32];
+      int32_t r5 = r[j + i + 40];
+      int32_t r6 = r[j + i + 48];
+      int32_t r7 = r[j + i + 56];
+      
+      t0 = mld_fqmul(zeta32, r4);
+      t1 = mld_fqmul(zeta32, r5);
+      t2 = mld_fqmul(zeta32, r6);
+      t3 = mld_fqmul(zeta32, r7);
+      r4 = r0 - t0;
+      r5 = r1 - t1;
+      r6 = r2 - t2;
+      r7 = r3 - t3;
+      r0 += t0;
+      r1 += t1;
+      r2 += t2;
+      r3 += t3;
+      
+      t0 = mld_fqmul(zeta160, r2);
+      t1 = mld_fqmul(zeta160, r3);
+      t2 = mld_fqmul(zeta161, r6);
+      t3 = mld_fqmul(zeta161, r7);
+      r2 = r0 - t0;
+      r3 = r1 - t1;
+      r6 = r4 - t2;
+      r7 = r5 - t3;
+      r0 += t0;
+      r1 += t1;
+      r4 += t2;
+      r5 += t3;
+      
+      t0 = mld_fqmul(zeta80, r1);
+      t1 = mld_fqmul(zeta81, r3);
+      t2 = mld_fqmul(zeta82, r5);
+      t3 = mld_fqmul(zeta83, r7);
+      r1 = r0 - t0;
+      r3 = r2 - t1;
+      r5 = r4 - t2;
+      r7 = r6 - t3;
+      r0 += t0;
+      r2 += t1;
+      r4 += t2;
+      r6 += t3;
+      
+      r[j + i +  0] = r0;
+      r[j + i +  8] = r1;
+      r[j + i + 16] = r2;
+      r[j + i + 24] = r3;
+      r[j + i + 32] = r4;
+      r[j + i + 40] = r5;
+      r[j + i + 48] = r6;
+      r[j + i + 56] = r7;
+    }
+  }
+  
+  k = 128;
+  for (j = 0; j < MLDSA_N; j += 8) {
+    int32_t zeta4  = mld_zetas[32 + j / 8];
+    int32_t zeta20 = mld_zetas[64 + j / 4 + 0];
+    int32_t zeta21 = mld_zetas[64 + j / 4 + 1];
+    int32_t r0 = r[j + 0];
+    int32_t r1 = r[j + 1];
+    int32_t r2 = r[j + 2];
+    int32_t r3 = r[j + 3];
+    int32_t r4 = r[j + 4];
+    int32_t r5 = r[j + 5];
+    int32_t r6 = r[j + 6];
+    int32_t r7 = r[j + 7];
+    
+    t0 = mld_fqmul(zeta4, r4);
+    t1 = mld_fqmul(zeta4, r5);
+    t2 = mld_fqmul(zeta4, r6);
+    t3 = mld_fqmul(zeta4, r7);
+    r4 = r0 - t0;
+    r5 = r1 - t1;
+    r6 = r2 - t2;
+    r7 = r3 - t3;
+    r0 += t0;
+    r1 += t1;
+    r2 += t2;
+    r3 += t3;
+    
+    t0 = mld_fqmul(zeta20, r2);
+    t1 = mld_fqmul(zeta20, r3);
+    t2 = mld_fqmul(zeta21, r6);
+    t3 = mld_fqmul(zeta21, r7);
+    r2 = r0 - t0;
+    r3 = r1 - t1;
+    r6 = r4 - t2;
+    r7 = r5 - t3;
+    r0 += t0;
+    r1 += t1;
+    r4 += t2;
+    r5 += t3;
+    
+    t0 = mld_fqmul(mld_zetas[k++], r1);
+    t1 = mld_fqmul(mld_zetas[k++], r3);
+    t2 = mld_fqmul(mld_zetas[k++], r5);
+    t3 = mld_fqmul(mld_zetas[k++], r7);
+    r1 = r0 - t0;
+    r3 = r2 - t1;
+    r5 = r4 - t2;
+    r7 = r6 - t3;
+    r0 += t0;
+    r2 += t1;
+    r4 += t2;
+    r6 += t3;
+    
+    r[j + 0] = r0;
+    r[j + 1] = r1;
+    r[j + 2] = r2;
+    r[j + 3] = r3;
+    r[j + 4] = r4;
+    r[j + 5] = r5;
+    r[j + 6] = r6;
+    r[j + 7] = r7;
+  }
+}
+#endif
+
 MLD_STATIC_TESTABLE void mld_poly_ntt_c(mld_poly *a)
 __contract__(
   requires(memory_no_alias(a, sizeof(mld_poly)))
@@ -315,7 +508,11 @@ void mld_poly_ntt(mld_poly *a)
     return;
   }
 #endif /* MLD_USE_NATIVE_NTT */
+#if defined(MLD_SYS_RISCV32)
+  mld_poly_ntt_riscv32(a);
+#else
   mld_poly_ntt_c(a);
+#endif
 }
 
 /*************************************************
@@ -381,6 +578,248 @@ __contract__(
   }
 }
 
+#if defined(MLD_SYS_RISCV32)
+static void mld_poly_invntt_tomont_riscv32(mld_poly *a)
+{
+  int32_t *r = a->coeffs;
+  unsigned int j, k;
+  int32_t t0, t1, t2, t3;
+  
+  k = 128;
+  for (j = 0; j < MLDSA_N; j += 8) {
+    int32_t r0 = r[j + 0];
+    int32_t r1 = r[j + 1];
+    int32_t r2 = r[j + 2];
+    int32_t r3 = r[j + 3];
+    int32_t r4 = r[j + 4];
+    int32_t r5 = r[j + 5];
+    int32_t r6 = r[j + 6];
+    int32_t r7 = r[j + 7];
+    
+    int32_t zeta1 = -mld_zetas[k++];
+    int32_t zeta2 = -mld_zetas[k++];
+    int32_t zeta3 = -mld_zetas[k++];
+    int32_t zeta4 = -mld_zetas[k++];
+    
+    t0 = r0 - r1;
+    t1 = r2 - r3;
+    t2 = r4 - r5;
+    t3 = r6 - r7;
+    r0 += r1;
+    r2 += r3;
+    r4 += r5;
+    r6 += r7;
+    r1 = mld_fqmul(zeta1, t0);
+    r3 = mld_fqmul(zeta2, t1);
+    r5 = mld_fqmul(zeta3, t2);
+    r7 = mld_fqmul(zeta4, t3);
+    
+    int32_t zeta20 = -mld_zetas[64 + j / 4 + 0];
+    int32_t zeta21 = -mld_zetas[64 + j / 4 + 1];
+    t0 = r0 - r2;
+    t1 = r1 - r3;
+    t2 = r4 - r6;
+    t3 = r5 - r7;
+    r0 += r2;
+    r1 += r3;
+    r4 += r6;
+    r5 += r7;
+    r2 = mld_fqmul(zeta20, t0);
+    r3 = mld_fqmul(zeta20, t1);
+    r6 = mld_fqmul(zeta21, t2);
+    r7 = mld_fqmul(zeta21, t3);
+    
+    int32_t zeta4_idx = -mld_zetas[32 + j / 8];
+    t0 = r0 - r4;
+    t1 = r1 - r5;
+    t2 = r2 - r6;
+    t3 = r3 - r7;
+    r0 += r4;
+    r1 += r5;
+    r2 += r6;
+    r3 += r7;
+    r4 = mld_fqmul(zeta4_idx, t0);
+    r5 = mld_fqmul(zeta4_idx, t1);
+    r6 = mld_fqmul(zeta4_idx, t2);
+    r7 = mld_fqmul(zeta4_idx, t3);
+    
+    r[j + 0] = r0;
+    r[j + 1] = r1;
+    r[j + 2] = r2;
+    r[j + 3] = r3;
+    r[j + 4] = r4;
+    r[j + 5] = r5;
+    r[j + 6] = r6;
+    r[j + 7] = r7;
+  }
+  
+  for (j = 0; j < MLDSA_N; j += 16) {
+    unsigned int i;
+    int32_t zeta8  = -mld_zetas[16 + j / 16];
+    
+    for (i = 0; i < 4; i++) {
+      int32_t r0 = r[j + i +  0];
+      int32_t r2 = r[j + i +  4];
+      int32_t r4 = r[j + i +  8];
+      int32_t r6 = r[j + i + 12];
+      
+      int32_t zeta40 = -mld_zetas[8 + (j + i * 4) / 8 + 0];
+      int32_t zeta41 = -mld_zetas[8 + (j + i * 4) / 8 + 1];
+      
+      t0 = r0 - r2;
+      t2 = r4 - r6;
+      r0 += r2;
+      r4 += r6;
+      r2 = mld_fqmul(zeta40, t0);
+      r6 = mld_fqmul(zeta41, t2);
+      
+      t0 = r0 - r4;
+      t2 = r2 - r6;
+      r0 += r4;
+      r2 += r6;
+      r4 = mld_fqmul(zeta8, t0);
+      r6 = mld_fqmul(zeta8, t2);
+      
+      r[j + i +  0] = r0;
+      r[j + i +  4] = r2;
+      r[j + i +  8] = r4;
+      r[j + i + 12] = r6;
+    }
+  }
+  
+  for (j = 0; j < MLDSA_N; j += 64) {
+    unsigned int i;
+    int32_t zeta32  = -mld_zetas[4 + j / 64];
+    
+    for (i = 0; i < 8; i++) {
+      int32_t r0 = r[j + i +  0];
+      int32_t r1 = r[j + i +  8];
+      int32_t r2 = r[j + i + 16];
+      int32_t r3 = r[j + i + 24];
+      int32_t r4 = r[j + i + 32];
+      int32_t r5 = r[j + i + 40];
+      int32_t r6 = r[j + i + 48];
+      int32_t r7 = r[j + i + 56];
+      
+      int32_t zeta80  = -mld_zetas[16 + (j + i * 8) / 16 + 0];
+      int32_t zeta81  = -mld_zetas[16 + (j + i * 8) / 16 + 1];
+      int32_t zeta82  = -mld_zetas[16 + (j + i * 8) / 16 + 2];
+      int32_t zeta83  = -mld_zetas[16 + (j + i * 8) / 16 + 3];
+      
+      t0 = r0 - r1;
+      t1 = r2 - r3;
+      t2 = r4 - r5;
+      t3 = r6 - r7;
+      r0 += r1;
+      r2 += r3;
+      r4 += r5;
+      r6 += r7;
+      r1 = mld_fqmul(zeta80, t0);
+      r3 = mld_fqmul(zeta81, t1);
+      r5 = mld_fqmul(zeta82, t2);
+      r7 = mld_fqmul(zeta83, t3);
+      
+      int32_t zeta160 = -mld_zetas[8 + (j + i * 8) / 32 + 0];
+      int32_t zeta161 = -mld_zetas[8 + (j + i * 8) / 32 + 1];
+      
+      t0 = r0 - r2;
+      t1 = r1 - r3;
+      t2 = r4 - r6;
+      t3 = r5 - r7;
+      r0 += r2;
+      r1 += r3;
+      r4 += r6;
+      r5 += r7;
+      r2 = mld_fqmul(zeta160, t0);
+      r3 = mld_fqmul(zeta160, t1);
+      r6 = mld_fqmul(zeta161, t2);
+      r7 = mld_fqmul(zeta161, t3);
+      
+      t0 = r0 - r4;
+      t1 = r1 - r5;
+      t2 = r2 - r6;
+      t3 = r3 - r7;
+      r0 += r4;
+      r1 += r5;
+      r2 += r6;
+      r3 += r7;
+      r4 = mld_fqmul(zeta32, t0);
+      r5 = mld_fqmul(zeta32, t1);
+      r6 = mld_fqmul(zeta32, t2);
+      r7 = mld_fqmul(zeta32, t3);
+      
+      r[j + i +  0] = r0;
+      r[j + i +  8] = r1;
+      r[j + i + 16] = r2;
+      r[j + i + 24] = r3;
+      r[j + i + 32] = r4;
+      r[j + i + 40] = r5;
+      r[j + i + 48] = r6;
+      r[j + i + 56] = r7;
+    }
+  }
+  
+  int32_t zeta2 = -mld_zetas[2];
+  int32_t zeta1 = -mld_zetas[1];
+  int32_t zeta0 = -mld_zetas[0];
+  
+  for (j = 0; j < MLDSA_N / 8; j++) {
+    int32_t r0 = r[j +   0];
+    int32_t r1 = r[j +  32];
+    int32_t r2 = r[j +  64];
+    int32_t r3 = r[j +  96];
+    int32_t r4 = r[j + 128];
+    int32_t r5 = r[j + 160];
+    int32_t r6 = r[j + 192];
+    int32_t r7 = r[j + 224];
+    
+    t0 = r0 - r2;
+    t1 = r1 - r3;
+    t2 = r4 - r6;
+    t3 = r5 - r7;
+    r0 += r2;
+    r1 += r3;
+    r4 += r6;
+    r5 += r7;
+    r2 = mld_fqmul(zeta2, t0);
+    r3 = mld_fqmul(zeta2, t1);
+    r6 = mld_fqmul(zeta2, t2);
+    r7 = mld_fqmul(zeta2, t3);
+    
+    t0 = r0 - r4;
+    t1 = r1 - r5;
+    t2 = r2 - r6;
+    t3 = r3 - r7;
+    r0 += r4;
+    r1 += r5;
+    r2 += r6;
+    r3 += r7;
+    r4 = mld_fqmul(zeta1, t0);
+    r5 = mld_fqmul(zeta1, t1);
+    r6 = mld_fqmul(zeta1, t2);
+    r7 = mld_fqmul(zeta1, t3);
+    
+    r0 = mld_fqmul(zeta0, r0);
+    r1 = mld_fqmul(zeta0, r1);
+    r2 = mld_fqmul(zeta0, r2);
+    r3 = mld_fqmul(zeta0, r3);
+    r4 = mld_fqmul(zeta0, r4);
+    r5 = mld_fqmul(zeta0, r5);
+    r6 = mld_fqmul(zeta0, r6);
+    r7 = mld_fqmul(zeta0, r7);
+    
+    r[j +   0] = r0;
+    r[j +  32] = r1;
+    r[j +  64] = r2;
+    r[j +  96] = r3;
+    r[j + 128] = r4;
+    r[j + 160] = r5;
+    r[j + 192] = r6;
+    r[j + 224] = r7;
+  }
+}
+#endif
+
 MLD_STATIC_TESTABLE void mld_poly_invntt_tomont_c(mld_poly *a)
 __contract__(
   requires(memory_no_alias(a, sizeof(mld_poly)))
@@ -438,7 +877,11 @@ void mld_poly_invntt_tomont(mld_poly *a)
     return;
   }
 #endif /* MLD_USE_NATIVE_INTT */
+#if defined(MLD_SYS_RISCV32)
+  mld_poly_invntt_tomont_riscv32(a);
+#else
   mld_poly_invntt_tomont_c(a);
+#endif
 }
 
 MLD_STATIC_TESTABLE void mld_poly_pointwise_montgomery_c(mld_poly *c,

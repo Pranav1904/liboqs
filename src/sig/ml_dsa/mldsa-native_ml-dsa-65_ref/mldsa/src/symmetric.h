@@ -15,8 +15,23 @@
 #if LIBOQS_SHA_IMPLEMENTATION
 
 #if defined(MLD_USE_FIPS202_KYBER)
-/* Use local fips202_kyber (SHAKE from Kyber ref) - serial only, no x4. */
+/*
+ * Use local fips202_kyber (SHAKE from Kyber ref). Only single-stream APIs
+ * (mld_shake128_*, mld_shake256_*, mld_xof128_*, mld_xof256_*) are defined
+ * here; mld_xof128_x4_* and mld_xof256_x4_* are not defined in this branch
+ * (they exist only in the #else branch with MLD_FIPS202X4_HEADER_FILE).
+ * Therefore matrix_expand must use the serial path: MLD_CONFIG_SERIAL_FIPS202_ONLY
+ * is forced below so that all 40 matrix polys are expanded via mld_poly_uniform
+ * -> mld_xof128_* -> fips202_kyber.c (no liboqs 4x code used).
+ */
+#ifndef MLD_CONFIG_SERIAL_FIPS202_ONLY
+#define MLD_CONFIG_SERIAL_FIPS202_ONLY 1
+#endif
 #include "fips202_kyber.h"
+
+/* 5 blocks per poly -> 40*5 = 200 Keccak permutes (match WolfSSL). Override any build -D so count is 200 not 150. */
+#undef MLD_POLY_UNIFORM_NBLOCKS
+#define MLD_POLY_UNIFORM_NBLOCKS 5
 
 #define MLD_STREAM128_BLOCKBYTES SHAKE128_RATE
 #define MLD_STREAM256_BLOCKBYTES SHAKE256_RATE
@@ -65,8 +80,9 @@
   } while (0)
 
 #define mld_xof128_release(CTX) mld_shake128_release(CTX)
+/* Use squeezeblocks so each call does exactly OUTBLOCKS Keccak permutes (200 for 40 polys * 5). */
 #define mld_xof128_squeezeblocks(OUT, OUTBLOCKS, STATE) \
-  mld_shake128_squeeze(OUT, (OUTBLOCKS) * SHAKE128_RATE, STATE)
+  shake128_squeezeblocks(OUT, (OUTBLOCKS), (STATE))
 
 #else /* !MLD_USE_FIPS202_KYBER */
 /* Use build-configured FIPS202 backend (e.g. liboqs fips202.h). */

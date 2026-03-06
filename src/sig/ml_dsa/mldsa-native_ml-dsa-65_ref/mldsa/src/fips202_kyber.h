@@ -8,7 +8,8 @@
 #define SHAKE256_RATE 136
 #define SHA3_256_RATE 136
 #define SHA3_512_RATE 72
-
+/* Disabled: no Keccak block counting; use ESP_LOGI in application only. */
+#define MLD_KECCAK_COUNT_VERIFY 1
 #define FIPS202_NAMESPACE(s) pqcrystals_kyber_fips202_ref_##s
 
 typedef struct {
@@ -50,5 +51,13 @@ void shake256(uint8_t *out, size_t outlen, const uint8_t *in, size_t inlen);
 void sha3_256(uint8_t h[32], const uint8_t *in, size_t inlen);
 #define sha3_512 FIPS202_NAMESPACE(sha3_512)
 void sha3_512(uint8_t h[64], const uint8_t *in, size_t inlen);
+
+#if defined(MLD_KECCAK_COUNT_VERIFY)
+/* Optional: count Keccak F1600 permutations (e.g. during matrix_expand) for
+ * comparison with WolfSSL. Define MLD_KECCAK_COUNT_VERIFY when building. */
+void mld_keccak_count_reset(void);
+uint64_t mld_keccak_count_get(void);
+uint64_t mld_keccak_squeeze_blocks_requested_get(void);
+#endif
 
 #endif

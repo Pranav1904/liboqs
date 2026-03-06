@@ -34,7 +34,7 @@ set(_ML_DSA_OBJS "")
 
 if(OQS_ENABLE_SIG_ml_dsa_65)
     add_library(ml_dsa_65_ref OBJECT sig_ml_dsa_65.c mldsa-native_ml-dsa-65_ref/mldsa/src/ct.c mldsa-native_ml-dsa-65_ref/mldsa/src/debug.c mldsa-native_ml-dsa-65_ref/mldsa/src/fips202_kyber.c mldsa-native_ml-dsa-65_ref/mldsa/src/packing.c mldsa-native_ml-dsa-65_ref/mldsa/src/poly.c mldsa-native_ml-dsa-65_ref/mldsa/src/poly_kl.c mldsa-native_ml-dsa-65_ref/mldsa/src/polyvec.c mldsa-native_ml-dsa-65_ref/mldsa/src/sign.c)
-    target_compile_options(ml_dsa_65_ref PUBLIC -DMLD_CONFIG_PARAMETER_SET=65 -DMLD_CONFIG_FILE="../../integration/liboqs/config_c.h" -DMLD_USE_FIPS202_KYBER -DMLD_CONFIG_SERIAL_FIPS202_ONLY)
+    target_compile_options(ml_dsa_65_ref PUBLIC -DMLD_CONFIG_PARAMETER_SET=65 -DMLD_CONFIG_FILE="../../integration/liboqs/config_c.h" -DMLD_USE_FIPS202_KYBER -DMLD_CONFIG_SERIAL_FIPS202_ONLY -DMLD_POLY_UNIFORM_NBLOCKS=5)
     target_include_directories(ml_dsa_65_ref PRIVATE ${CMAKE_CURRENT_LIST_DIR}/mldsa-native_ml-dsa-65_ref)
     target_include_directories(ml_dsa_65_ref PRIVATE ${PROJECT_SOURCE_DIR}/src/common/pqclean_shims)
     target_compile_options(ml_dsa_65_ref PUBLIC -DMLD_CONFIG_PARAMETER_SET=65 -DMLD_CONFIG_FILE="../../integration/liboqs/config_c.h")

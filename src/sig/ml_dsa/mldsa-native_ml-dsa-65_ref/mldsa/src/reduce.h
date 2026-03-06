@@ -36,7 +36,7 @@
  *              In particular, if |a| < 2^31 * MLDSA_Q, the absolute value
  *              of the return value is < MLDSA_Q.
  **************************************************/
-static MLD_INLINE int32_t mld_montgomery_reduce(int64_t a)
+static MLD_ALWAYS_INLINE int32_t mld_montgomery_reduce(int64_t a)
 __contract__(
   /* We don't attempt to express an input-dependent output bound
    * as the post-condition here, as all call-sites satisfy the
@@ -47,43 +47,12 @@ __contract__(
   ensures(return_value > -MLDSA_Q && return_value < MLDSA_Q)
 )
 {
-  /* check-magic: 58728449 == unsigned_mod(pow(MLDSA_Q, -1, 2^32), 2^32) */
-  const uint64_t QINV = 58728449;
-
-  /*  Compute a*q^{-1} mod 2^32 in unsigned representatives */
-  const uint32_t a_reduced = mld_cast_int64_to_uint32(a);
-  const uint32_t a_inverted = (a_reduced * QINV) & UINT32_MAX;
-
-  /* Lift to signed canonical representative mod 2^32. */
-  const int32_t t = mld_cast_uint32_to_int32(a_inverted);
-
-  int64_t r;
-
-  mld_assert(a < +(INT64_MAX - (((int64_t)1 << 31) * MLDSA_Q)) &&
-             a > -(INT64_MAX - (((int64_t)1 << 31) * MLDSA_Q)));
-
-  r = a - (int64_t)t * MLDSA_Q;
-
-  /*
-   * PORTABILITY: Right-shift on a signed integer is, strictly-speaking,
-   * implementation-defined for negative left argument. Here,
-   * we assume it's sign-preserving "arithmetic" shift right. (C99 6.5.7 (5))
-   */
-  r = r >> 32;
-
-  /* Bounds:
-   *
-   * By construction of the Montgomery multiplication, by the time we
-   * compute r >> 32, r is divisible by 2^32, and hence
-   *
-   *   |r >> 32|  = |r| / 2^32
-   *             <= |a| / 2^32 + MLDSA_Q / 2
-   *
-   * (In general, we would only have |x >> n| <= ceil(|x| / 2^n)).
-   *
-   * In particular, if |a| < 2^31 * MLDSA_Q, then |return_value| < MLDSA_Q.
-   */
-  return (int32_t)r;
+  /* WolfSSL-style single-expression Montgomery reduce for better codegen.
+   * check-magic: 58728449 == unsigned_mod(pow(MLDSA_Q, -1, 2^32), 2^32) */
+  const uint32_t a_lo = (uint32_t)(a & (int64_t)UINT32_MAX);
+  const int32_t t = (int32_t)((a_lo * (uint32_t)58728449u) & (uint32_t)UINT32_MAX);
+  int64_t r = a - (int64_t)t * MLDSA_Q;
+  return (int32_t)(r >> 32);
 }
 
 /*************************************************
@@ -97,7 +66,7 @@ __contract__(
  *
  * Returns r.
  **************************************************/
-static MLD_INLINE int32_t mld_reduce32(int32_t a)
+static MLD_ALWAYS_INLINE int32_t mld_reduce32(int32_t a)
 __contract__(
   requires(a <= MLD_REDUCE32_DOMAIN_MAX)
   ensures(return_value >= -MLD_REDUCE32_RANGE_MAX)

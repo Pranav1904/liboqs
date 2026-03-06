@@ -27,6 +27,47 @@
 #include <stdint.h>
 #include <string.h>
 
+/* Enable verify/sign timing and phase breakdown. Print summary every 20 iterations. */
+#undef MLD_VERIFY_TIMING
+#define MLD_VERIFY_TIMING 0
+#undef MLD_SIGN_TIMING
+#define MLD_SIGN_TIMING 0
+#define MLD_TIMING_ITERATIONS 20
+/* Enable clock_gettime(CLOCK_MONOTONIC) timing; on ESP if CLOCK_MONOTONIC
+ * is not provided by the toolchain, define it as 1 (matches Linux value). */
+#ifndef CLOCK_MONOTONIC
+// #define CLOCK_MONOTONIC 0
+#endif
+
+#if (defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING) || (defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING)
+#include <stdio.h>
+#include <time.h>
+#if defined(__linux__) || defined(__ESP_IDF__) || defined(ESP_PLATFORM)
+#include <sys/time.h>
+#endif
+#ifdef CLOCK_MONOTONIC
+static inline uint64_t mld_elapsed_ns(const struct timespec *start, const struct timespec *end)
+{
+  int64_t sec = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+  int64_t nsec = (int64_t)end->tv_nsec - (int64_t)start->tv_nsec;
+  if (nsec < 0) { sec--; nsec += 1000000000; }
+  return (uint64_t)(sec * 1000000000LL + nsec);
+}
+#endif
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+static uint64_t mld_acc_unpack_pk_sig, mld_acc_hash_mu, mld_acc_challenge_ct1;
+static uint64_t mld_acc_matrix_expand, mld_acc_matrix_vector, mld_acc_hint_pack, mld_acc_hash_compare;
+static unsigned int mld_verify_timing_count;
+#endif
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+static uint64_t mld_acc_sign_unpack, mld_acc_sign_hash_mu, mld_acc_sign_hash_rhoprime;
+static uint64_t mld_acc_sign_matrix_expand, mld_acc_sign_ntt_priv;
+static uint64_t mld_acc_sign_sample_y, mld_acc_sign_ntt_matmul_invntt, mld_acc_sign_decompose_pack;
+static uint64_t mld_acc_sign_hash_challenge, mld_acc_sign_compute_pack_z, mld_acc_sign_cs2_ct0_hint;
+static unsigned int mld_sign_timing_count;
+#endif
+#endif
+
 #include "cbmc.h"
 #include "ct.h"
 #include "debug.h"
@@ -653,20 +694,46 @@ __contract__(
   w1 = &w1tmp->w1;
   tmp = &w1tmp->tmp;
 
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  struct timespec ts_start, ts_end;
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   /* Sample intermediate vector y */
   mld_polyvecl_uniform_gamma1(y, rhoprime, nonce);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  mld_acc_sign_sample_y += mld_elapsed_ns(&ts_start, &ts_end);
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
 
   /* Matrix-vector multiplication */
   *tmp = *y;
   mld_polyvecl_ntt(tmp);
   mld_polyvec_matrix_pointwise_montgomery(w0, mat, tmp);
   mld_polyveck_invntt_tomont(w0);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  mld_acc_sign_ntt_matmul_invntt += mld_elapsed_ns(&ts_start, &ts_end);
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
 
   /* Decompose w and call the random oracle */
   mld_polyveck_caddq(w0);
   mld_polyveck_decompose(w1, w0);
   mld_polyveck_pack_w1(sig, w1);
-
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  mld_acc_sign_decompose_pack += mld_elapsed_ns(&ts_start, &ts_end);
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   mld_H(challenge_bytes, MLDSA_CTILDEBYTES, mu, MLDSA_CRHBYTES, sig,
         MLDSA_K * MLDSA_POLYW1_PACKEDBYTES, NULL, 0);
   /* Constant time: Leaking challenge_bytes does not reveal any information
@@ -676,9 +743,23 @@ __contract__(
   MLD_CT_TESTING_DECLASSIFY(challenge_bytes, MLDSA_CTILDEBYTES);
   mld_poly_challenge(cp, challenge_bytes);
   mld_poly_ntt(cp);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  mld_acc_sign_hash_challenge += mld_elapsed_ns(&ts_start, &ts_end);
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
 
   /* Compute z, reject if it reveals secret */
   ret = mld_compute_pack_z(sig, cp, s1, y, t);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  mld_acc_sign_compute_pack_z += mld_elapsed_ns(&ts_start, &ts_end);
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   if (ret)
   {
     goto cleanup;
@@ -696,6 +777,12 @@ __contract__(
   MLD_CT_TESTING_DECLASSIFY(&w0_invalid, sizeof(uint32_t));
   if (w0_invalid)
   {
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_cs2_ct0_hint += mld_elapsed_ns(&ts_start, &ts_end);
+#endif
+#endif
     ret = MLD_ERR_FAIL; /* reject */
     goto cleanup;
   }
@@ -710,6 +797,12 @@ __contract__(
   MLD_CT_TESTING_DECLASSIFY(&h_invalid, sizeof(uint32_t));
   if (h_invalid)
   {
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_cs2_ct0_hint += mld_elapsed_ns(&ts_start, &ts_end);
+#endif
+#endif
     ret = MLD_ERR_FAIL; /* reject */
     goto cleanup;
   }
@@ -729,12 +822,24 @@ __contract__(
   n = mld_polyveck_make_hint(h, w0, w1);
   if (n > MLDSA_OMEGA)
   {
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_cs2_ct0_hint += mld_elapsed_ns(&ts_start, &ts_end);
+#endif
+#endif
     ret = MLD_ERR_FAIL; /* reject */
     goto cleanup;
   }
 
   /* All is well - write signature */
   mld_pack_sig_c_h(sig, challenge_bytes, h, n);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  mld_acc_sign_cs2_ct0_hint += mld_elapsed_ns(&ts_start, &ts_end);
+#endif
+#endif
   /* Constant time: At this point it is clear that the signature is valid - it
    * can, hence, be considered public. */
   MLD_CT_TESTING_DECLASSIFY(sig, MLDSA_CRYPTO_BYTES);
@@ -784,8 +889,29 @@ int mld_sign_signature_internal(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
   key = tr + MLDSA_TRBYTES;
   mu = key + MLDSA_SEEDBYTES;
   rhoprime = mu + MLDSA_CRHBYTES;
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  {
+    struct timespec ts_start, ts_end;
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   mld_unpack_sk(rho, tr, key, t0, s1, s2, sk);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_unpack += mld_elapsed_ns(&ts_start, &ts_end);
+  }
+#endif
+#endif
 
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  {
+    struct timespec ts_start, ts_end;
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   if (!externalmu)
   {
     /* Compute mu = CRH(tr, pre, msg) */
@@ -796,18 +922,60 @@ int mld_sign_signature_internal(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
     /* mu has been provided directly */
     mld_memcpy(mu, m, MLDSA_CRHBYTES);
   }
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_hash_mu += mld_elapsed_ns(&ts_start, &ts_end);
+  }
+#endif
+#endif
 
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  {
+    struct timespec ts_start, ts_end;
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   /* Compute rhoprime = CRH(key, rnd, mu) */
   mld_H(rhoprime, MLDSA_CRHBYTES, key, MLDSA_SEEDBYTES, rnd, MLDSA_RNDBYTES, mu,
         MLDSA_CRHBYTES);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_hash_rhoprime += mld_elapsed_ns(&ts_start, &ts_end);
+  }
+#endif
+#endif
 
   /* Constant time: rho is part of the public key and, hence, public. */
   MLD_CT_TESTING_DECLASSIFY(rho, MLDSA_SEEDBYTES);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+  {
+    struct timespec ts_start, ts_end;
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   /* Expand matrix and transform vectors */
   mld_polyvec_matrix_expand(mat, rho);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_matrix_expand += mld_elapsed_ns(&ts_start, &ts_end);
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#endif
+#endif
   mld_polyvecl_ntt(s1);
   mld_polyveck_ntt(s2);
   mld_polyveck_ntt(t0);
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+#ifdef CLOCK_MONOTONIC
+    clock_gettime(CLOCK_MONOTONIC, &ts_end);
+    mld_acc_sign_ntt_priv += mld_elapsed_ns(&ts_start, &ts_end);
+  }
+#endif
+#endif
 
   /* By default, return failure. Flip to success and write output
    * once signature generation succeeds. */
@@ -859,6 +1027,28 @@ int mld_sign_signature_internal(uint8_t sig[MLDSA_CRYPTO_BYTES], size_t *siglen,
 
     /* Otherwise, try again. */
   }
+
+#if defined(MLD_SIGN_TIMING) && MLD_SIGN_TIMING
+  mld_sign_timing_count++;
+  if (mld_sign_timing_count == MLD_TIMING_ITERATIONS) {
+    const unsigned int n = MLD_TIMING_ITERATIONS;
+    printf("\n[liboqs ML-DSA] SIGN phase breakdown (avg ms per sign over %u iterations):\n", n);
+    printf("  one-time: unpack %7.2f  hash_mu %7.2f  hash_rhoprime %7.2f  matrix_expand %7.2f  ntt_priv %7.2f\n",
+           mld_acc_sign_unpack / (n * 1e6), mld_acc_sign_hash_mu / (n * 1e6),
+           mld_acc_sign_hash_rhoprime / (n * 1e6), mld_acc_sign_matrix_expand / (n * 1e6),
+           mld_acc_sign_ntt_priv / (n * 1e6));
+    printf("  per-attempt: sample_y %7.2f  ntt_matmul_invntt %7.2f  decompose_pack %7.2f  hash_challenge %7.2f  compute_pack_z %7.2f  cs2_ct0_hint %7.2f\n",
+           mld_acc_sign_sample_y / (n * 1e6), mld_acc_sign_ntt_matmul_invntt / (n * 1e6),
+           mld_acc_sign_decompose_pack / (n * 1e6), mld_acc_sign_hash_challenge / (n * 1e6),
+           mld_acc_sign_compute_pack_z / (n * 1e6), mld_acc_sign_cs2_ct0_hint / (n * 1e6));
+    printf("  (per-attempt phases are summed over all attempts in the %u signs)\n\n", n);
+    mld_acc_sign_unpack = mld_acc_sign_hash_mu = mld_acc_sign_hash_rhoprime = 0;
+    mld_acc_sign_matrix_expand = mld_acc_sign_ntt_priv = 0;
+    mld_acc_sign_sample_y = mld_acc_sign_ntt_matmul_invntt = mld_acc_sign_decompose_pack = 0;
+    mld_acc_sign_hash_challenge = mld_acc_sign_compute_pack_z = mld_acc_sign_cs2_ct0_hint = 0;
+    mld_sign_timing_count = 0;
+  }
+#endif
 
 cleanup:
 
@@ -1061,6 +1251,14 @@ int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
                              MLD_CONFIG_CONTEXT_PARAMETER_TYPE context)
 {
   int ret, cmp;
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+  struct timespec ts_start, ts_end;
+  uint64_t ns_unpack_pk_sig = 0, ns_hash_mu = 0, ns_challenge_ct1 = 0;
+  uint64_t ns_matrix_expand = 0, ns_matrix_vector = 0, ns_az_only = 0;
+  uint64_t ns_sub_reduce_invntt = 0, ns_hint_pack = 0, ns_hash_compare = 0;
+  uint64_t total_ns = 0;
+  int verify_timed = 0;
+#endif
 
   /* TODO: Remove the following workaround for
    * https://github.com/diffblue/cbmc/issues/8813 */
@@ -1101,6 +1299,13 @@ int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
     goto cleanup;
   }
 
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_start);
+#else
+  (void)ts_start;
+#endif
+#endif
   mld_unpack_pk(rho, t1, pk);
 
   /* mld_unpack_sig and mld_polyvecl_chknorm signal failure through a
@@ -1116,6 +1321,13 @@ int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
     ret = MLD_ERR_FAIL;
     goto cleanup;
   }
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_unpack_pk_sig = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
 
   if (!externalmu)
   {
@@ -1133,6 +1345,13 @@ int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
     /* mu has been provided directly */
     mld_memcpy(mu, m, MLDSA_CRHBYTES);
   }
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_hash_mu = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
 
   /* Matrix-vector multiplication; compute Az - c2^dt1 */
   mld_poly_challenge(cp, c);
@@ -1140,28 +1359,107 @@ int mld_sign_verify_internal(const uint8_t *sig, size_t siglen,
   mld_polyveck_shiftl(t1);
   mld_polyveck_ntt(t1);
   mld_polyveck_pointwise_poly_montgomery(tmp, cp, t1);
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_challenge_ct1 = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
 
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING && defined(MLD_KECCAK_COUNT_VERIFY)
+  mld_keccak_count_reset();
+#endif
   mld_polyvec_matrix_expand(mat, rho);
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_matrix_expand = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
   mld_polyvecl_ntt(z);
   mld_polyvec_matrix_pointwise_montgomery(w1, mat, z);
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_az_only = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
   mld_polyveck_sub(w1, tmp);
   mld_polyveck_reduce(w1);
   mld_polyveck_invntt_tomont(w1);
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_sub_reduce_invntt = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+  ns_matrix_vector = ns_az_only + ns_sub_reduce_invntt;
+#endif
 
   /* Reconstruct w1 */
   mld_polyveck_caddq(w1);
   mld_polyveck_use_hint(tmp, w1, h);
   mld_polyveck_pack_w1(buf, tmp);
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_hint_pack = mld_elapsed_ns(&ts_start, &ts_end);
+  ts_start = ts_end;
+#endif
+#endif
   /* Call random oracle and verify challenge */
   mld_H(c2, MLDSA_CTILDEBYTES, mu, MLDSA_CRHBYTES, buf,
         MLDSA_K * MLDSA_POLYW1_PACKEDBYTES, NULL, 0);
 
   cmp = mld_ct_memcmp(c, c2, MLDSA_CTILDEBYTES);
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+#ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &ts_end);
+  ns_hash_compare = mld_elapsed_ns(&ts_start, &ts_end);
+  total_ns = ns_unpack_pk_sig + ns_hash_mu + ns_challenge_ct1
+      + ns_matrix_expand + ns_matrix_vector + ns_hint_pack + ns_hash_compare;
+#endif
+  verify_timed = 1;
+#endif
 
   /* Declassify the result of the verification. */
   MLD_CT_TESTING_DECLASSIFY(&cmp, sizeof(cmp));
 
   ret = cmp == 0 ? 0 : MLD_ERR_FAIL;
+
+#if defined(MLD_VERIFY_TIMING) && MLD_VERIFY_TIMING
+  if (verify_timed) {
+    mld_acc_unpack_pk_sig += ns_unpack_pk_sig;
+    mld_acc_hash_mu += ns_hash_mu;
+    mld_acc_challenge_ct1 += ns_challenge_ct1;
+    mld_acc_matrix_expand += ns_matrix_expand;
+    mld_acc_matrix_vector += ns_matrix_vector;
+    mld_acc_hint_pack += ns_hint_pack;
+    mld_acc_hash_compare += ns_hash_compare;
+    mld_verify_timing_count++;
+    if (mld_verify_timing_count == MLD_TIMING_ITERATIONS) {
+      const unsigned int n = MLD_TIMING_ITERATIONS;
+      printf("\n[liboqs ML-DSA] VERIFY phase breakdown (avg ms over %u iterations):\n", n);
+      printf("  unpack_pk_sig   %7.2f  hash_mu   %7.2f  challenge_ct1 %7.2f\n",
+             mld_acc_unpack_pk_sig / (n * 1e6), mld_acc_hash_mu / (n * 1e6),
+             mld_acc_challenge_ct1 / (n * 1e6));
+      printf("  matrix_expand   %7.2f  matvec    %7.2f  hint_pack     %7.2f  hash_compare %7.2f\n",
+             mld_acc_matrix_expand / (n * 1e6), mld_acc_matrix_vector / (n * 1e6),
+             mld_acc_hint_pack / (n * 1e6), mld_acc_hash_compare / (n * 1e6));
+      printf("  total_avg_ms    %7.2f\n\n",
+             (mld_acc_unpack_pk_sig + mld_acc_hash_mu + mld_acc_challenge_ct1
+              + mld_acc_matrix_expand + mld_acc_matrix_vector + mld_acc_hint_pack + mld_acc_hash_compare) / (n * 1e6));
+      mld_acc_unpack_pk_sig = mld_acc_hash_mu = mld_acc_challenge_ct1 = 0;
+      mld_acc_matrix_expand = mld_acc_matrix_vector = mld_acc_hint_pack = mld_acc_hash_compare = 0;
+      mld_verify_timing_count = 0;
+    }
+  }
+#endif
 
 cleanup:
   /* @[FIPS204, Section 3.6.3] Destruction of intermediate values. */
