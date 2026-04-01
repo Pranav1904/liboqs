@@ -9,7 +9,7 @@
 #define SHA3_256_RATE 136
 #define SHA3_512_RATE 72
 /* Disabled: no Keccak block counting; use ESP_LOGI in application only. */
-#define MLD_KECCAK_COUNT_VERIFY 1
+// #define MLD_KECCAK_COUNT_VERIFY 1
 #define FIPS202_NAMESPACE(s) pqcrystals_kyber_fips202_ref_##s
 
 typedef struct {

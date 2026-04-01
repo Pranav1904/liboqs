@@ -4,7 +4,7 @@
 
 #include <oqs/sig_ml_dsa.h>
 #define LIBOQS_ENABLE_KEYGEN 0
-#define LIBOQS_ENABLE_SIGN 0
+#define LIBOQS_ENABLE_SIGN 1
 #define LIBOQS_ENABLE_VERIFY 1
 #if defined(OQS_ENABLE_SIG_ml_dsa_65)
 OQS_SIG *OQS_SIG_ml_dsa_65_new(void) {

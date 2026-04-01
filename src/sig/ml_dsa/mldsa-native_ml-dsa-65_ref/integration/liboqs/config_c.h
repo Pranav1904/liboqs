@@ -26,9 +26,9 @@
 #endif /* !__ASSEMBLER__ */
 
 /* Use OQS's FIPS202 via glue headers */
-#define MLD_CONFIG_FIPS202_CUSTOM_HEADER \
+#define MLD_CONFIG_FIPS202_CUSTOM_HEADER                                       \
   "../../integration/liboqs/fips202_glue.h"
-#define MLD_CONFIG_FIPS202X4_CUSTOM_HEADER \
+#define MLD_CONFIG_FIPS202X4_CUSTOM_HEADER                                     \
   "../../integration/liboqs/fips202x4_glue.h"
 
 /******************************************************************************
@@ -43,7 +43,7 @@
  *
  *****************************************************************************/
 #ifndef MLD_CONFIG_PARAMETER_SET
-#define MLD_CONFIG_PARAMETER_SET \
+#define MLD_CONFIG_PARAMETER_SET                                               \
   44 /* Change this for different security strengths */
 #endif
 
@@ -175,11 +175,10 @@
  *****************************************************************************/
 #define MLD_CONFIG_CUSTOM_RANDOMBYTES
 #if !defined(__ASSEMBLER__)
+#include "../../mldsa/src/sys.h"
 #include <oqs/rand.h>
 #include <stdint.h>
-#include "../../mldsa/src/sys.h"
-static MLD_INLINE int mld_randombytes(uint8_t *ptr, size_t len)
-{
+static MLD_INLINE int mld_randombytes(uint8_t *ptr, size_t len) {
   OQS_randombytes(ptr, len);
   return 0;
 }
@@ -314,6 +313,7 @@ static MLD_INLINE int mld_randombytes(uint8_t *ptr, size_t len)
  *
  * e.g., PQCP_MLDSA_NATIVE_MLDSA44_C_
  */
+#define MLD_CONFIG_REDUCE_RAM
 
 #if MLD_CONFIG_PARAMETER_SET == 44
 #define MLD_DEFAULT_NAMESPACE_PREFIX PQCP_MLDSA_NATIVE_MLDSA44_C
