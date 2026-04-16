@@ -31,6 +31,27 @@ option(OQS_MEMOPT_BUILD "Build with memory-optimized implementations where avail
 option(OQS_USE_CUPQC "Utilize cuPQC as the backend for supported PQC algorithms." OFF)
 option(OQS_USE_ICICLE "Utilize ICICLE as the backend for supported PQC algorithms." OFF)
 
+# mldsa fips 202 customisation
+set(OQS_ML_DSA_FIPS202_CUSTOM_HEADER "" CACHE STRING "Custom FIPS202 Header for ML-DSA")
+option(OQS_ML_DSA_SERIAL_FIPS202 "Use serial-only FIPS-202 for ML-DSA" OFF)
+
+# ML-KEM FIPS-202 customization
+set(OQS_ML_KEM_FIPS202_CUSTOM_HEADER "" CACHE STRING "Custom FIPS-202 header for ML-KEM")
+option(OQS_ML_KEM_SERIAL_FIPS202 "Use serial-only FIPS-202 for ML-KEM" OFF)
+
+# Signature operation selection (all ON by default)
+option(OQS_SIG_ENABLE_KEYGEN "Enable keypair generation for signature schemes" ON)
+option(OQS_SIG_ENABLE_SIGN   "Enable signing for signature schemes" ON)
+option(OQS_SIG_ENABLE_VERIFY "Enable verification for signature schemes" ON)
+
+# KEM operation selection (all ON by default)
+option(OQS_KEM_ENABLE_KEYGEN "Enable keypair generation for KEM schemes" ON)
+option(OQS_KEM_ENABLE_ENCAPS "Enable encapsulation for KEM schemes" ON)
+option(OQS_KEM_ENABLE_DECAPS "Enable decapsulation for KEM schemes" ON)
+
+# 32-bit optimized Keccak permutation for embedded 32-bit targets (e.g. ESP32, ARM Cortex-M)
+option(OQS_ENABLE_SHA3_xkcp_low_plain32 "Use 32-bit optimized Keccak permutation for embedded 32-bit targets" OFF)
+
 # Libfuzzer isn't supported on gcc
 if('${CMAKE_C_COMPILER_ID}' STREQUAL 'Clang')
     option(OQS_BUILD_FUZZ_TESTS "Build fuzz test suite" OFF)

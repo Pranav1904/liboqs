@@ -41,7 +41,16 @@ extern struct OQS_SHA3_callbacks sha3_default_callbacks;
 
 static void Keccak_Dispatch(void) {
 // TODO: Simplify this when we have a Windows-compatible AVX2 implementation of SHA3
-#if defined(OQS_DIST_X86_64_BUILD)
+#if defined(OQS_ENABLE_SHA3_xkcp_low_plain32)
+	/* 32-bit optimized Keccak for embedded targets (e.g. ESP32, ARM Cortex-M).
+	 * Selected at compile time — no runtime CPU detection needed. */
+	Keccak_Initialize_ptr = &KeccakP1600_Initialize_plain32;
+	Keccak_AddByte_ptr = &KeccakP1600_AddByte_plain32;
+	Keccak_AddBytes_ptr = &KeccakP1600_AddBytes_plain32;
+	Keccak_Permute_ptr = &KeccakP1600_Permute_24rounds_plain32;
+	Keccak_ExtractBytes_ptr = &KeccakP1600_ExtractBytes_plain32;
+	Keccak_FastLoopAbsorb_ptr = &KeccakF1600_FastLoop_Absorb_plain32;
+#elif defined(OQS_DIST_X86_64_BUILD)
 #if defined(OQS_ENABLE_SHA3_xkcp_low_avx2)
 #if defined(OQS_USE_SHA3_AVX512VL)
 	if (OQS_CPU_has_extension(OQS_CPU_EXT_AVX512)) {

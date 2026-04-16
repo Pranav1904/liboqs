@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <oqs/kem_{{ family }}.h>
 
@@ -15,6 +16,7 @@ OQS_KEM *OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_new(void) {
 	if (kem == NULL) {
 		return NULL;
 	}
+	memset(kem, 0, sizeof(OQS_KEM));
 	kem->method_name = OQS_KEM_alg_{{ family }}_{{ scheme['scheme'] }};
 	kem->alg_version = "{{ scheme['metadata']['implementations'][0]['version'] }}";
 
@@ -28,11 +30,17 @@ OQS_KEM *OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_new(void) {
 	kem->length_keypair_seed = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_length_keypair_seed;
 	kem->length_encaps_seed = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_length_encaps_seed;
 
+#if defined(OQS_KEM_ENABLE_KEYGEN)
 	kem->keypair = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair;
 	kem->keypair_derand = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair_derand;
+#endif
+#if defined(OQS_KEM_ENABLE_ENCAPS)
 	kem->encaps = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps;
 	kem->encaps_derand = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps_derand;
+#endif
+#if defined(OQS_KEM_ENABLE_DECAPS)
 	kem->decaps = OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_decaps;
+#endif
 
 	return kem;
 }
@@ -50,6 +58,7 @@ OQS_KEM *OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_new(void) {
 	if (kem == NULL) {
 		return NULL;
 	}
+	memset(kem, 0, sizeof(OQS_KEM));
 	kem->method_name = OQS_KEM_alg_{{ family }}_{{ scheme['alias_scheme'] }};
 	kem->alg_version = "{{ scheme['metadata']['implementations'][0]['version'] }}";
 
@@ -63,11 +72,17 @@ OQS_KEM *OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_new(void) {
 	kem->length_keypair_seed = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_length_keypair_seed;
 	kem->length_encaps_seed = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_length_encaps_seed;
 
+#if defined(OQS_KEM_ENABLE_KEYGEN)
 	kem->keypair = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_keypair;
 	kem->keypair_derand = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_keypair_derand;
+#endif
+#if defined(OQS_KEM_ENABLE_ENCAPS)
 	kem->encaps = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_encaps;
-    kem->encaps_derand = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_encaps_derand;
+	kem->encaps_derand = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_encaps_derand;
+#endif
+#if defined(OQS_KEM_ENABLE_DECAPS)
 	kem->decaps = OQS_KEM_{{ family }}_{{ scheme['alias_scheme'] }}_decaps;
+#endif
 
 	return kem;
 }
@@ -165,6 +180,7 @@ extern int libjade_{{ scheme['pqclean_scheme_c'] }}_{{ impl['name'] }}_dec(uint8
 {% endfor -%}
 {% endif %}
 
+#if defined(OQS_KEM_ENABLE_KEYGEN)
 OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair_derand(uint8_t *public_key, uint8_t *secret_key, const uint8_t *seed) {
 {%- if scheme['derandomized_keypair'] %}
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
@@ -205,7 +221,16 @@ OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair_derand(ui
 	return OQS_ERROR;
     {%- endif %}
 }
+#else /* !OQS_KEM_ENABLE_KEYGEN */
+OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair_derand(uint8_t *public_key, uint8_t *secret_key, const uint8_t *seed) {
+	(void)public_key;
+	(void)secret_key;
+	(void)seed;
+	return OQS_ERROR;
+}
+#endif /* OQS_KEM_ENABLE_KEYGEN */
 
+#if defined(OQS_KEM_ENABLE_KEYGEN)
 OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key) {
 {%- if libjade_implementation is defined and scheme['libjade_implementation'] %}
 #if defined(OQS_LIBJADE_BUILD) && (defined(OQS_ENABLE_LIBJADE_KEM_{{ family }}_{{ scheme['scheme'] }}) {%- if 'alias_scheme' in scheme %} || defined(OQS_ENABLE_LIBJADE_KEM_{{ family }}_{{ scheme['alias_scheme'] }}){%- endif %})
@@ -289,7 +314,15 @@ OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *
 #endif /* OQS_LIBJADE_BUILD */
 {%- endif %}
 }
+#else /* !OQS_KEM_ENABLE_KEYGEN */
+OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key) {
+	(void)public_key;
+	(void)secret_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_KEM_ENABLE_KEYGEN */
 
+#if defined(OQS_KEM_ENABLE_ENCAPS)
 OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps_derand(uint8_t *ciphertext, uint8_t *shared_secret, const uint8_t *public_key, const uint8_t *seed) {
 {%- if scheme['derandomized_encaps'] %}
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
@@ -331,7 +364,17 @@ OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps_derand(uin
 	return OQS_ERROR;
     {%- endif %}
 }
+#else /* !OQS_KEM_ENABLE_ENCAPS */
+OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps_derand(uint8_t *ciphertext, uint8_t *shared_secret, const uint8_t *public_key, const uint8_t *seed) {
+	(void)ciphertext;
+	(void)shared_secret;
+	(void)public_key;
+	(void)seed;
+	return OQS_ERROR;
+}
+#endif /* OQS_KEM_ENABLE_ENCAPS */
 
+#if defined(OQS_KEM_ENABLE_ENCAPS)
 OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps(uint8_t *ciphertext, uint8_t *shared_secret, const uint8_t *public_key) {
 {%- if libjade_implementation is defined and scheme['libjade_implementation'] %}
 #if defined(OQS_LIBJADE_BUILD) && (defined(OQS_ENABLE_LIBJADE_KEM_{{ family }}_{{ scheme['scheme'] }}) {%- if 'alias_scheme' in scheme %} || defined(OQS_ENABLE_LIBJADE_KEM_{{ family }}_{{ scheme['alias_scheme'] }}){%- endif %})
@@ -415,7 +458,16 @@ OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps(uint8_t *c
 #endif /* OQS_LIBJADE_BUILD */
 {%- endif %}
 }
+#else /* !OQS_KEM_ENABLE_ENCAPS */
+OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_encaps(uint8_t *ciphertext, uint8_t *shared_secret, const uint8_t *public_key) {
+	(void)ciphertext;
+	(void)shared_secret;
+	(void)public_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_KEM_ENABLE_ENCAPS */
 
+#if defined(OQS_KEM_ENABLE_DECAPS)
 OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_decaps(uint8_t *shared_secret, const uint8_t *ciphertext, const uint8_t *secret_key) {
 {%- if libjade_implementation is defined and scheme['libjade_implementation'] %}
 #if defined(OQS_LIBJADE_BUILD) && (defined(OQS_ENABLE_LIBJADE_KEM_{{ family }}_{{ scheme['scheme'] }}) {%- if 'alias_scheme' in scheme %} || defined(OQS_ENABLE_LIBJADE_KEM_{{ family }}_{{ scheme['alias_scheme'] }}){%- endif %})
@@ -499,6 +551,14 @@ OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_decaps(uint8_t *s
 #endif /* OQS_LIBJADE_BUILD */
 {%- endif %}
 }
+#else /* !OQS_KEM_ENABLE_DECAPS */
+OQS_API OQS_STATUS OQS_KEM_{{ family }}_{{ scheme['scheme'] }}_decaps(uint8_t *shared_secret, const uint8_t *ciphertext, const uint8_t *secret_key) {
+	(void)shared_secret;
+	(void)ciphertext;
+	(void)secret_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_KEM_ENABLE_DECAPS */
 
 #endif
 {% endfor -%}
