@@ -3,13 +3,18 @@
 set(_XKCP_LOW_OBJS "")
 
 # Determine which of the implementations we're building
-if(OQS_DIST_X86_64_BUILD AND OQS_ENABLE_SHA3_xkcp_low_avx2)
-  set(BUILD_PLAIN64 ON)
-  set(BUILD_AVX2 ON)
-elseif(OQS_ENABLE_SHA3_xkcp_low_avx2)
-  set(BUILD_AVX2 ON)
+if(OQS_ENABLE_SHA3_xkcp_low_plain32)
+  # 32-bit embedded target: use plain32 exclusively, skip plain64/avx2
+  set(BUILD_PLAIN32 ON)
 else()
-  set(BUILD_PLAIN64 ON)
+  if(OQS_DIST_X86_64_BUILD AND OQS_ENABLE_SHA3_xkcp_low_avx2)
+    set(BUILD_PLAIN64 ON)
+    set(BUILD_AVX2 ON)
+  elseif(OQS_ENABLE_SHA3_xkcp_low_avx2)
+    set(BUILD_AVX2 ON)
+  else()
+    set(BUILD_PLAIN64 ON)
+  endif()
 endif()
 
 if(BUILD_PLAIN64)
@@ -25,6 +30,22 @@ if(BUILD_PLAIN64)
 
   set(_XKCP_LOW_OBJS ${_XKCP_LOW_OBJS} $<TARGET_OBJECTS:xkcp_low_keccakp_1600_plain64>
                                        $<TARGET_OBJECTS:xkcp_low_keccakp_1600times4_serial>)
+endif()
+
+if(BUILD_PLAIN32)
+  add_library(xkcp_low_keccakp_1600_plain32 OBJECT
+    KeccakP-1600/plain-32bits/KeccakP-1600-opt32.c)
+
+  # times4 serial wrapper: calls plain32 single permutation via SnP macros,
+  # exposes unsuffixed KeccakP1600times4_* symbols for the generic dispatch path
+  add_library(xkcp_low_keccakp_1600times4_plain32_serial OBJECT
+    KeccakP-1600times4/serial/KeccakP-1600-times4-on1.c)
+  target_include_directories(xkcp_low_keccakp_1600times4_plain32_serial
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/KeccakP-1600/plain-32bits)
+
+  set(_XKCP_LOW_OBJS ${_XKCP_LOW_OBJS}
+    $<TARGET_OBJECTS:xkcp_low_keccakp_1600_plain32>
+    $<TARGET_OBJECTS:xkcp_low_keccakp_1600times4_plain32_serial>)
 endif()
 
 # We currently do not have a SHA3 AVX2 implementation that works on Windows

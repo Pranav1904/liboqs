@@ -23,6 +23,7 @@ The following options can be passed to CMake before the build file generation pr
 - [OQS_STRICT_WARNINGS](#OQS_STRICT_WARNINGS)
 - [OQS_EMBEDDED_BUILD](#OQS_EMBEDDED_BUILD)
 - [OQS_MEMOPT_BUILD](#OQS_MEMOPT_BUILD)
+- [ML-DSA / ML-KEM FIPS-202 and operation selection](#ml-dsa--ml-kem-fips-202-and-operation-selection)
 - [OQS_LIBJADE_BUILD](#OQS_LIBJADE_BUILD)
 - [OQS_ENABLE_LIBJADE_KEM_ALG/OQS_ENABLE_LIBJADE_SIG_ALG](#OQS_ENABLE_LIBJADE_KEM_ALG/OQS_ENABLE_LIBJADE_SIG_ALG)
 - [OQS_BUILD_FUZZ_TESTS](#OQS_BUILD_FUZZ_TESTS)
@@ -256,6 +257,24 @@ Can be `ON` or `OFF`. When `ON`, selects memory-optimized implementations of alg
 Upstream projects can provide memory-optimized implementations by adding a separate implementation entry in their META.yml file with `memory_optimized: true`.
 
 **Default**: `OFF`.
+
+## ML-DSA / ML-KEM FIPS-202 and operation selection
+
+These options are intended for embedded or minimal builds. Defaults preserve the standard liboqs behavior.
+
+- **`OQS_ML_DSA_FIPS202_CUSTOM_HEADER`**: CMake `STRING`. When non-empty, passed to mldsa-native as `MLD_CONFIG_FIPS202_CUSTOM_HEADER` so ML-DSA uses a custom FIPS-202 header with the same API as the upstream glue layer. **Default**: empty.
+
+- **`OQS_ML_DSA_SERIAL_FIPS202`**: `ON` or `OFF`. When `ON`, sets `MLD_CONFIG_SERIAL_FIPS202_ONLY` for ML-DSA (serial SHAKE only, no x4 parallel FIPS-202). Ignored when `OQS_ML_DSA_FIPS202_COMPACT` is `ON` (compact already enables serial FIPS-202). **Default**: `OFF`.
+
+- **`OQS_ML_KEM_FIPS202_CUSTOM_HEADER`**: CMake `STRING`. When non-empty, passed to mlkem-native as `MLK_CONFIG_FIPS202_CUSTOM_HEADER`. **Default**: empty.
+
+- **`OQS_ML_KEM_SERIAL_FIPS202`**: `ON` or `OFF`. When `ON`, sets `MLK_CONFIG_SERIAL_FIPS202_ONLY` for ML-KEM. **Default**: `OFF`.
+
+- **`OQS_SIG_ENABLE_KEYGEN`**, **`OQS_SIG_ENABLE_SIGN`**, **`OQS_SIG_ENABLE_VERIFY`**: Each `ON` or `OFF`. When `OFF`, the corresponding `OQS_SIG` vtable entries are left `NULL` (after `memset`) and the matching symbols compile to stubs returning `OQS_ERROR`, so the linker can drop unused code in minimal builds. **Default**: `ON` for each.
+
+- **`OQS_KEM_ENABLE_KEYGEN`**, **`OQS_KEM_ENABLE_ENCAPS`**, **`OQS_KEM_ENABLE_DECAPS`**: Each `ON` or `OFF`. Same pattern for `OQS_KEM` (keygen covers `keypair` and `keypair_derand`; encaps covers `encaps` and `encaps_derand`). **Default**: `ON` for each.
+
+- **`OQS_ML_DSA_FIPS202_COMPACT`**: `ON` or `OFF`. When `ON`, ML-DSA builds add `fips202_compact` (serial FIPS-202 shim to liboqs SHA3) and set `MLD_CONFIG_SERIAL_FIPS202_ONLY` and a compact FIPS-202 header path. **Default**: `OFF`.
 
 ## OQS_LIBJADE_BUILD
 Can be `ON` or `OFF`. When `ON` liboqs is built to use high assurance implementations of cryptographic algorithms from [Libjade](https://github.com/formosa-crypto/libjade). The cryptographic primitives in Libjade are written using [Jasmin](https://github.com/jasmin-lang/jasmin) and built using the Jasmin compiler. The Jasmin compiler is proven (in Coq) to preserve semantic correctness of a program, maintain secret-independence of control flow, and maintain secret independence of locations of memory access through compilation. Additionally, the Jasmin compiler guarantees thread safety because Jasmin doesn't support global variables. 

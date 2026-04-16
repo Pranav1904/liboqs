@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <oqs/sig_{{ family }}.h>
 
@@ -16,6 +17,7 @@ OQS_SIG *OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_new(void) {
 	if (sig == NULL) {
 		return NULL;
 	}
+	memset(sig, 0, sizeof(OQS_SIG));
 	sig->method_name = OQS_SIG_alg_{{ family }}_{{ scheme['scheme'] }};
 	sig->alg_version = "{{ scheme['metadata']['implementations'][0]['version'] }}";
 
@@ -32,11 +34,17 @@ OQS_SIG *OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_new(void) {
 	sig->length_secret_key = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_secret_key;
 	sig->length_signature = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_signature;
 
+#if defined(OQS_SIG_ENABLE_KEYGEN)
 	sig->keypair = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair;
+#endif
+#if defined(OQS_SIG_ENABLE_SIGN)
 	sig->sign = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign;
-	sig->verify = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify;
 	sig->sign_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str;
+#endif
+#if defined(OQS_SIG_ENABLE_VERIFY)
+	sig->verify = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify;
 	sig->verify_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str;
+#endif
 
 	return sig;
 }
@@ -54,6 +62,7 @@ OQS_SIG *OQS_SIG_{{ family }}_{{ scheme['alias_scheme'] }}_new(void) {
 	if (sig == NULL) {
 		return NULL;
 	}
+	memset(sig, 0, sizeof(OQS_SIG));
 	sig->method_name = OQS_SIG_alg_{{ family }}_{{ scheme['alias_scheme'] }};
 	sig->alg_version = "{{ scheme['metadata']['implementations'][0]['version'] }}";
 
@@ -65,15 +74,33 @@ OQS_SIG *OQS_SIG_{{ family }}_{{ scheme['alias_scheme'] }}_new(void) {
 	sig->length_secret_key = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_secret_key;
 	sig->length_signature = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_signature;
 
+#if defined(OQS_SIG_ENABLE_KEYGEN)
 	sig->keypair = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair;
+#endif
+#if defined(OQS_SIG_ENABLE_SIGN)
 	sig->sign = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign;
+#endif
+#if defined(OQS_SIG_ENABLE_VERIFY)
 	sig->verify = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify;
+#endif
     {%- if 'api-with-context-string' in default_impl and default_impl['api-with-context-string'] %}
+#if defined(OQS_SIG_ENABLE_SIGN)
 	sig->sign_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str;
+#endif
+#if defined(OQS_SIG_ENABLE_VERIFY)
 	sig->verify_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str;
+#endif
     {%- else %}
-    sig->sign_with_ctx_str = NULL
+#if defined(OQS_SIG_ENABLE_SIGN)
+	sig->sign_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str;
+#else
+	sig->sign_with_ctx_str = NULL;
+#endif
+#if defined(OQS_SIG_ENABLE_VERIFY)
+	sig->verify_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str;
+#else
 	sig->verify_with_ctx_str = NULL;
+#endif
     {%- endif %}
 
 	return sig;
@@ -146,6 +173,7 @@ extern int PQCLEAN_{{ scheme['pqclean_scheme_c']|upper }}_{{ impl['name']|upper 
 #endif
     {%- endfor %}
 
+#if defined(OQS_SIG_ENABLE_KEYGEN)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key) {
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
     {%- if loop.first %}
@@ -179,7 +207,15 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *
 #endif
     {%- endif %}
 }
+#else /* !OQS_SIG_ENABLE_KEYGEN */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key) {
+	(void)public_key;
+	(void)secret_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_KEYGEN */
 
+#if defined(OQS_SIG_ENABLE_SIGN)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key) {
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
     {%- if loop.first %}
@@ -226,7 +262,18 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *sig
 #endif
     {%- endif %}
 }
+#else /* !OQS_SIG_ENABLE_SIGN */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key) {
+	(void)signature;
+	(void)signature_len;
+	(void)message;
+	(void)message_len;
+	(void)secret_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_SIGN */
 
+#if defined(OQS_SIG_ENABLE_VERIFY)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key) {
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
     {%- if loop.first %}
@@ -273,9 +320,20 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint
 #endif
     {%- endif %}
 }
+#else /* !OQS_SIG_ENABLE_VERIFY */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key) {
+	(void)message;
+	(void)message_len;
+	(void)signature;
+	(void)signature_len;
+	(void)public_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_VERIFY */
 
 {%- set default_impl = scheme['metadata']['implementations'] | selectattr("name", "equalto", scheme['default_implementation']) | first %}
 {%- if 'api-with-context-string' in default_impl and default_impl['api-with-context-string'] %}
+#if defined(OQS_SIG_ENABLE_SIGN)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
     {%- if loop.first %}
@@ -310,7 +368,20 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str
 #endif
     {%- endif %}
 }
+#else /* !OQS_SIG_ENABLE_SIGN */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
+	(void)signature;
+	(void)signature_len;
+	(void)message;
+	(void)message_len;
+	(void)ctx_str;
+	(void)ctx_str_len;
+	(void)secret_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_SIGN */
 
+#if defined(OQS_SIG_ENABLE_VERIFY)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
     {%- if loop.first %}
@@ -345,8 +416,21 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_s
 #endif
     {%- endif %}
 }
+#else /* !OQS_SIG_ENABLE_VERIFY */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
+	(void)message;
+	(void)message_len;
+	(void)signature;
+	(void)signature_len;
+	(void)ctx_str;
+	(void)ctx_str_len;
+	(void)public_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_VERIFY */
 {%- else %}
 
+#if defined(OQS_SIG_ENABLE_SIGN)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
 	if (ctx_str == NULL && ctx_str_len == 0) {
 		return OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(signature, signature_len, message, message_len, secret_key);
@@ -354,7 +438,20 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str
 		return OQS_ERROR;
 	}
 }
+#else /* !OQS_SIG_ENABLE_SIGN */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
+	(void)signature;
+	(void)signature_len;
+	(void)message;
+	(void)message_len;
+	(void)ctx_str;
+	(void)ctx_str_len;
+	(void)secret_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_SIGN */
 
+#if defined(OQS_SIG_ENABLE_VERIFY)
 OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
 	if (ctx_str == NULL && ctx_str_len == 0) {
 		return OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(message, message_len, signature, signature_len, public_key);
@@ -362,6 +459,18 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_s
 		return OQS_ERROR;
 	}
 }
+#else /* !OQS_SIG_ENABLE_VERIFY */
+OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
+	(void)message;
+	(void)message_len;
+	(void)signature;
+	(void)signature_len;
+	(void)ctx_str;
+	(void)ctx_str_len;
+	(void)public_key;
+	return OQS_ERROR;
+}
+#endif /* OQS_SIG_ENABLE_VERIFY */
 {%- endif %}
 #endif
 {% endfor -%}

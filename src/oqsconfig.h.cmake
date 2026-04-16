@@ -70,10 +70,20 @@
 #cmakedefine OQS_ENABLE_TEST_CONSTANT_TIME 1
 
 #cmakedefine OQS_ENABLE_SHA3_xkcp_low_avx2 1
+#cmakedefine OQS_ENABLE_SHA3_xkcp_low_plain32 1
 #cmakedefine OQS_USE_SHA3_AVX512VL 1
 
 #cmakedefine01 OQS_USE_CUPQC
 #cmakedefine01 OQS_USE_ICICLE
+
+#cmakedefine OQS_ML_DSA_SERIAL_FIPS202 1
+#cmakedefine OQS_ML_KEM_SERIAL_FIPS202 1
+#cmakedefine OQS_SIG_ENABLE_KEYGEN 1
+#cmakedefine OQS_SIG_ENABLE_SIGN 1
+#cmakedefine OQS_SIG_ENABLE_VERIFY 1
+#cmakedefine OQS_KEM_ENABLE_KEYGEN 1
+#cmakedefine OQS_KEM_ENABLE_ENCAPS 1
+#cmakedefine OQS_KEM_ENABLE_DECAPS 1
 
 #cmakedefine OQS_ENABLE_KEM_BIKE 1
 #cmakedefine OQS_ENABLE_KEM_bike_l1 1
