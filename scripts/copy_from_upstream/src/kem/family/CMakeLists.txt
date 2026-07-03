@@ -78,6 +78,14 @@ if(OQS_ENABLE_KEM_{{ family }}_{{ scheme['scheme_c'] }}_{{ impl['name'] }}{%- if
         {%- if family == 'hqc' and impl['name'] == 'clean' %}
     target_compile_options({{ family }}_{{ scheme['scheme'] }}_{{ impl['name'] }} PRIVATE -O0)
         {%- endif %}
+        {%- if family == 'ml_kem' %}
+    if(NOT "${OQS_ML_KEM_FIPS202_CUSTOM_HEADER}" STREQUAL "")
+        target_compile_definitions({{ family }}_{{ scheme['scheme'] }}_{{ impl['name'] }} PRIVATE "MLK_CONFIG_FIPS202_CUSTOM_HEADER=\"${OQS_ML_KEM_FIPS202_CUSTOM_HEADER}\"")
+    endif()
+    if(OQS_ML_KEM_SERIAL_FIPS202)
+        target_compile_definitions({{ family }}_{{ scheme['scheme'] }}_{{ impl['name'] }} PRIVATE MLK_CONFIG_SERIAL_FIPS202_ONLY=1)
+    endif()
+        {%- endif %}
         {%- if impl['upstream']['name'].endswith('pqclean') %}
     if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         target_compile_definitions({{ family }}_{{ scheme['scheme'] }}_{{ impl['name'] }} PRIVATE old_gas_syntax)

@@ -17,36 +17,42 @@ typedef void KeccakInitFn(void *);
 extern KeccakInitFn \
 KeccakP1600_Initialize, \
 KeccakP1600_Initialize_plain64, \
+KeccakP1600_Initialize_plain32, \
 KeccakP1600_Initialize_avx2;
 
 typedef void KeccakAddByteFn(void *, const uint8_t, unsigned int);
 extern KeccakAddByteFn \
 KeccakP1600_AddByte, \
 KeccakP1600_AddByte_plain64, \
+KeccakP1600_AddByte_plain32, \
 KeccakP1600_AddByte_avx2;
 
 typedef void KeccakAddBytesFn(void *, const uint8_t *, unsigned int, unsigned int);
 extern KeccakAddBytesFn \
 KeccakP1600_AddBytes, \
 KeccakP1600_AddBytes_plain64, \
+KeccakP1600_AddBytes_plain32, \
 KeccakP1600_AddBytes_avx2;
 
 typedef void KeccakPermuteFn(void *);
 extern KeccakPermuteFn \
 KeccakP1600_Permute_24rounds, \
 KeccakP1600_Permute_24rounds_plain64, \
+KeccakP1600_Permute_24rounds_plain32, \
 KeccakP1600_Permute_24rounds_avx2;
 
 typedef void KeccakExtractBytesFn(const void *, uint8_t *, unsigned int, unsigned int);
 extern KeccakExtractBytesFn \
 KeccakP1600_ExtractBytes, \
 KeccakP1600_ExtractBytes_plain64, \
+KeccakP1600_ExtractBytes_plain32, \
 KeccakP1600_ExtractBytes_avx2;
 
 typedef size_t KeccakFastLoopAbsorbFn(void *, unsigned int, const uint8_t *, size_t);
 extern KeccakFastLoopAbsorbFn \
 KeccakF1600_FastLoop_Absorb, \
 KeccakF1600_FastLoop_Absorb_plain64, \
+KeccakF1600_FastLoop_Absorb_plain32, \
 KeccakF1600_FastLoop_Absorb_avx2;
 
 typedef void KeccakX4InitFn(void *);

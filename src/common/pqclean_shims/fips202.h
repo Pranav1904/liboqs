@@ -66,4 +66,12 @@ void OQS_SHA3_shake256_absorb_once(shake256incctx *state, const uint8_t *in, siz
 #define shake256_squeezeblocks(OUT, NBLOCKS, STATE) \
         OQS_SHA3_shake256_inc_squeeze(OUT, (NBLOCKS)*OQS_SHA3_SHAKE256_RATE, STATE)
 
+/*
+ * ML-KEM integration (fips202_glue.h) uses these names; pqclean_shims historically
+ * exposed them only via fips202x4.h. When MLK_CONFIG_SERIAL_FIPS202_ONLY is set,
+ * mlkem-native does not include the x4 header, so define the aliases here.
+ */
+#define shake128ctx shake128incctx
+#define shake128_release shake128_inc_ctx_release
+
 #endif
