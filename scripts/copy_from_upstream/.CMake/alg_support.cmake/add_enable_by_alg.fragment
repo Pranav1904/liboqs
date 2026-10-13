@@ -24,5 +24,10 @@ cmake_dependent_option(OQS_ENABLE_SIG_{{ family['name'] }}_{{ scheme['scheme'] }
 cmake_dependent_option(OQS_ENABLE_SIG_{{ family['name'] }}_{{ scheme['alias_scheme'] }} "" ON "OQS_ENABLE_SIG_{{ family['name']|upper }}" OFF)
 {%- endif -%}
     {%- endfor %}
+    {%- if 'disable_ops' in family %}
+        {%- for op in family['disable_ops'].values() %}
+cmake_dependent_option({{ op['enable_option'] }} "" ON "OQS_ENABLE_SIG_{{ family['name']|upper }}" OFF)
+        {%- endfor %}
+    {%- endif %}
 {% endfor -%}
 

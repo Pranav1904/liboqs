@@ -9,10 +9,12 @@ function(filter_algs alglist)
   #  2. the switch for one of the requested algorithms, e.g. OQS_ENABLE_KEM_kyber_768.
   #  3. the switch for platform-specific ("_aesni" or "_avx2") implementation of
   #     one of the requested algorithms, e.g. OQS_ENABLE_KEM_kyber_768_avx2.
+  # Per-operation toggles (e.g. OQS_ENABLE_SIG_ML_DSA_KEYPAIR/_SIGN/_VERIFY) are
+  # not algorithm switches, so they are left alone here and keep their own values.
 
   get_cmake_property(_vars VARIABLES)
   foreach (_var ${_vars})
-      if(_var MATCHES "^OQS_ENABLE_..._" AND NOT _var MATCHES "_AVAILABLE$" AND ${_var})
+      if(_var MATCHES "^OQS_ENABLE_..._" AND NOT _var MATCHES "_AVAILABLE$" AND NOT _var MATCHES "_(KEYPAIR|SIGN|VERIFY)$" AND ${_var})
           set(${_var} OFF PARENT_SCOPE)
           # Case 1, family name
 	  foreach (_alg ${ARGV0})
@@ -181,6 +183,9 @@ cmake_dependent_option(OQS_ENABLE_SIG_ml_dsa_87 "" ON "OQS_ENABLE_SIG_ML_DSA" OF
 cmake_dependent_option(OQS_ENABLE_SIG_ml_dsa_44_extmu "" ON "OQS_ENABLE_SIG_ML_DSA" OFF)
 cmake_dependent_option(OQS_ENABLE_SIG_ml_dsa_65_extmu "" ON "OQS_ENABLE_SIG_ML_DSA" OFF)
 cmake_dependent_option(OQS_ENABLE_SIG_ml_dsa_87_extmu "" ON "OQS_ENABLE_SIG_ML_DSA" OFF)
+cmake_dependent_option(OQS_ENABLE_SIG_ML_DSA_KEYPAIR "" ON "OQS_ENABLE_SIG_ML_DSA" OFF)
+cmake_dependent_option(OQS_ENABLE_SIG_ML_DSA_SIGN "" ON "OQS_ENABLE_SIG_ML_DSA" OFF)
+cmake_dependent_option(OQS_ENABLE_SIG_ML_DSA_VERIFY "" ON "OQS_ENABLE_SIG_ML_DSA" OFF)
 
 option(OQS_ENABLE_SIG_FALCON "Enable falcon algorithm family" ON)
 cmake_dependent_option(OQS_ENABLE_SIG_falcon_512 "" ON "OQS_ENABLE_SIG_FALCON" OFF)
@@ -457,6 +462,12 @@ elseif(${OQS_ALGS_ENABLED} STREQUAL "NIST_SIG_ONRAMP")
 	filter_algs("SIG_mayo_1;SIG_mayo_2;SIG_mayo_3;SIG_mayo_5;SIG_cross_rsdp_128_balanced;SIG_cross_rsdp_128_fast;SIG_cross_rsdp_128_small;SIG_cross_rsdp_192_balanced;SIG_cross_rsdp_192_fast;SIG_cross_rsdp_192_small;SIG_cross_rsdp_256_balanced;SIG_cross_rsdp_256_fast;SIG_cross_rsdp_256_small;SIG_cross_rsdpg_128_balanced;SIG_cross_rsdpg_128_fast;SIG_cross_rsdpg_128_small;SIG_cross_rsdpg_192_balanced;SIG_cross_rsdpg_192_fast;SIG_cross_rsdpg_192_small;SIG_cross_rsdpg_256_balanced;SIG_cross_rsdpg_256_fast;SIG_cross_rsdpg_256_small;SIG_uov_ov_Ip;SIG_uov_ov_Is;SIG_uov_ov_III;SIG_uov_ov_V;SIG_uov_ov_Ip_pkc;SIG_uov_ov_Is_pkc;SIG_uov_ov_III_pkc;SIG_uov_ov_V_pkc;SIG_uov_ov_Ip_pkc_skc;SIG_uov_ov_Is_pkc_skc;SIG_uov_ov_III_pkc_skc;SIG_uov_ov_V_pkc_skc;SIG_snova_SNOVA_I_K;SIG_snova_SNOVA_I_K_AES;SIG_snova_SNOVA_I_B;SIG_snova_SNOVA_I_B_AES;SIG_snova_SNOVA_I_S;SIG_snova_SNOVA_I_S_AES;SIG_snova_SNOVA_III_K;SIG_snova_SNOVA_III_K_AES;SIG_snova_SNOVA_III_B;SIG_snova_SNOVA_III_B_AES;SIG_snova_SNOVA_III_S;SIG_snova_SNOVA_III_S_AES;SIG_snova_SNOVA_V_K;SIG_snova_SNOVA_V_K_AES;SIG_snova_SNOVA_V_B;SIG_snova_SNOVA_V_B_AES;SIG_snova_SNOVA_V_S;SIG_snova_SNOVA_V_S_AES")
 else()
 	message(STATUS "Alg enablement unchanged")
+endif()
+
+# When ML-DSA is built, at least one of its operations must stay enabled.
+# An all-off build has no usable API and does not compile.
+if(OQS_ENABLE_SIG_ML_DSA AND NOT (OQS_ENABLE_SIG_ML_DSA_KEYPAIR OR OQS_ENABLE_SIG_ML_DSA_SIGN OR OQS_ENABLE_SIG_ML_DSA_VERIFY))
+	message(FATAL_ERROR "OQS_ENABLE_SIG_ML_DSA needs at least one of OQS_ENABLE_SIG_ML_DSA_KEYPAIR, OQS_ENABLE_SIG_ML_DSA_SIGN or OQS_ENABLE_SIG_ML_DSA_VERIFY")
 endif()
 
 

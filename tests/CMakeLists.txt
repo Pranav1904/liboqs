@@ -111,6 +111,9 @@ set(KEM_TESTS example_kem kat_kem test_kem test_kem_mem speed_kem vectors_kem)
 add_executable(example_sig example_sig.c)
 target_link_libraries(example_sig PRIVATE ${TEST_DEPS})
 
+add_executable(test_ml_dsa_options test_ml_dsa_options.c)
+target_link_libraries(test_ml_dsa_options PRIVATE ${TEST_DEPS})
+
 if(OQS_BUILD_FUZZ_TESTS AND CMAKE_C_COMPILER_ID MATCHES "Clang")
     add_executable(fuzz_test_sig fuzz_test_sig.c)
     target_link_libraries(fuzz_test_sig PRIVATE ${TEST_DEPS})

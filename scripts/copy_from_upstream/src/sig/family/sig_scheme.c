@@ -32,12 +32,22 @@ OQS_SIG *OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_new(void) {
 	sig->length_secret_key = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_secret_key;
 	sig->length_signature = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_signature;
 
-	sig->keypair = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair;
-	sig->sign = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign;
-	sig->verify = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify;
-	sig->sign_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str;
-	sig->verify_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str;
-
+{% if disable_ops is defined %}#if defined({{ disable_ops['keypair'].enable_option }})
+{% endif %}	sig->keypair = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair;
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}	sig->sign = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign;
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}	sig->verify = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify;
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}	sig->sign_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str;
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}	sig->verify_with_ctx_str = OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str;
+{% if disable_ops is defined %}#endif
+{% endif %}
 	return sig;
 }
 {%- if 'alias_scheme' in scheme %}
@@ -146,7 +156,8 @@ extern int PQCLEAN_{{ scheme['pqclean_scheme_c']|upper }}_{{ impl['name']|upper 
 #endif
     {%- endfor %}
 
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key) {
+{% if disable_ops is defined %}#if defined({{ disable_ops['keypair'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key) {
     {%- for impl in scheme['metadata']['implementations'] if impl['name'] != scheme['default_implementation'] %}
     {%- if loop.first %}
 #if defined(OQS_ENABLE_SIG_{{ family }}_{{ scheme['scheme'] }}_{{ impl['name'] }}) {%- if 'alias_scheme' in scheme %} || defined(OQS_ENABLE_SIG_{{ family }}_{{ scheme['alias_scheme'] }}_{{ impl['name'] }}){%- endif %}
@@ -179,8 +190,10 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *
 #endif
     {%- endif %}
 }
-
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key) {
+{% if disable_ops is defined %}#endif
+{% endif %}
+{% if disable_ops is defined %}#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key) {
 {%- if scheme.is_extmu %}
 	if (message_len != OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_mu) {
 		return OQS_ERROR;
@@ -231,8 +244,10 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *sig
 #endif
     {%- endif %}
 }
-
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key) {
+{% if disable_ops is defined %}#endif
+{% endif %}
+{% if disable_ops is defined %}#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key) {
 {%- if scheme.is_extmu %}
 	if (message_len != OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_mu) {
 		return OQS_ERROR;
@@ -283,10 +298,13 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint
 #endif
     {%- endif %}
 }
-
+{%- if disable_ops is defined %}
+#endif
+{%- endif %}
 {%- set default_impl = scheme['metadata']['implementations'] | selectattr("name", "equalto", scheme['default_implementation']) | first %}
 {%- if 'api-with-context-string' in default_impl and default_impl['api-with-context-string'] %}
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
+{% if disable_ops is defined %}#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
 {%- if scheme.is_extmu %}
 	if (message_len != OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_mu) {
 		return OQS_ERROR;
@@ -325,8 +343,10 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str
 #endif
     {%- endif %}
 }
-
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
+{% if disable_ops is defined %}#endif
+{% endif %}
+{% if disable_ops is defined %}#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
 {%- if scheme.is_extmu %}
 	if (message_len != OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_mu) {
 		return OQS_ERROR;
@@ -365,9 +385,13 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_s
 #endif
     {%- endif %}
 }
+{%- if disable_ops is defined %}
+#endif
+{%- endif %}
 {%- else %}
 
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
+{% if disable_ops is defined %}#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
 {%- if scheme.is_extmu %}
 	if (message_len != OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_mu) {
 		return OQS_ERROR;
@@ -379,8 +403,10 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str
 		return OQS_ERROR;
 	}
 }
-
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
+{% if disable_ops is defined %}#endif
+{% endif %}
+{% if disable_ops is defined %}#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
 {%- if scheme.is_extmu %}
 	if (message_len != OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_mu) {
 		return OQS_ERROR;
@@ -392,6 +418,9 @@ OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_s
 		return OQS_ERROR;
 	}
 }
+{%- if disable_ops is defined %}
+#endif
+{%- endif %}
 {%- endif %}
 #endif
 {% endfor -%}

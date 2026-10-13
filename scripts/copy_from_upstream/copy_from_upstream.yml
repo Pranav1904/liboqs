@@ -233,6 +233,13 @@ sigs:
     name: ml_dsa
     default_implementation: ref
     upstream_location: mldsa-native
+    disable_ops:
+      keypair:
+        enable_option: OQS_ENABLE_SIG_ML_DSA_KEYPAIR
+      sign:
+        enable_option: OQS_ENABLE_SIG_ML_DSA_SIGN
+      verify:
+        enable_option: OQS_ENABLE_SIG_ML_DSA_VERIFY
     schemes:
       -
         scheme: "44"

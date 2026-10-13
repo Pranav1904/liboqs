@@ -30,5 +30,10 @@
 {%- endif -%}
         {%- endfor -%}
     {%- endfor -%}
+    {%- if 'disable_ops' in family %}
+        {%- for op in family['disable_ops'].values() %}
+#cmakedefine {{ op['enable_option'] }} 1
+        {%- endfor %}
+    {%- endif -%}
 {% endfor %}
 

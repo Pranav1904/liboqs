@@ -185,6 +185,9 @@
 #cmakedefine OQS_ENABLE_SIG_ml_dsa_87_extmu 1
 #cmakedefine OQS_ENABLE_SIG_ml_dsa_87_extmu_x86_64 1
 #cmakedefine OQS_ENABLE_SIG_ml_dsa_87_extmu_aarch64 1
+#cmakedefine OQS_ENABLE_SIG_ML_DSA_KEYPAIR 1
+#cmakedefine OQS_ENABLE_SIG_ML_DSA_SIGN 1
+#cmakedefine OQS_ENABLE_SIG_ML_DSA_VERIFY 1
 
 #cmakedefine OQS_ENABLE_SIG_FALCON 1
 #cmakedefine OQS_ENABLE_SIG_falcon_512 1

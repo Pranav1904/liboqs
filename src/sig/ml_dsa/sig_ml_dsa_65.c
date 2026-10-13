@@ -23,11 +23,21 @@ OQS_SIG *OQS_SIG_ml_dsa_65_new(void) {
 	sig->length_secret_key = OQS_SIG_ml_dsa_65_length_secret_key;
 	sig->length_signature = OQS_SIG_ml_dsa_65_length_signature;
 
+#if defined(OQS_ENABLE_SIG_ML_DSA_KEYPAIR)
 	sig->keypair = OQS_SIG_ml_dsa_65_keypair;
+#endif
+#if defined(OQS_ENABLE_SIG_ML_DSA_SIGN)
 	sig->sign = OQS_SIG_ml_dsa_65_sign;
+#endif
+#if defined(OQS_ENABLE_SIG_ML_DSA_VERIFY)
 	sig->verify = OQS_SIG_ml_dsa_65_verify;
+#endif
+#if defined(OQS_ENABLE_SIG_ML_DSA_SIGN)
 	sig->sign_with_ctx_str = OQS_SIG_ml_dsa_65_sign_with_ctx_str;
+#endif
+#if defined(OQS_ENABLE_SIG_ML_DSA_VERIFY)
 	sig->verify_with_ctx_str = OQS_SIG_ml_dsa_65_verify_with_ctx_str;
+#endif
 
 	return sig;
 }
@@ -48,6 +58,7 @@ extern int PQCP_MLDSA_NATIVE_MLDSA65_AARCH64_signature_oqs(uint8_t *sig, size_t 
 extern int PQCP_MLDSA_NATIVE_MLDSA65_AARCH64_verify_oqs(const uint8_t *sig, size_t siglen, const uint8_t *m, size_t mlen, const uint8_t *ctx, size_t ctxlen, const uint8_t *pk);
 #endif
 
+#if defined(OQS_ENABLE_SIG_ML_DSA_KEYPAIR)
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_keypair(uint8_t *public_key, uint8_t *secret_key) {
 #if defined(OQS_ENABLE_SIG_ml_dsa_65_x86_64)
 #if defined(OQS_DIST_BUILD)
@@ -73,7 +84,9 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_keypair(uint8_t *public_key, uint8_t *secre
 	return (OQS_STATUS) PQCP_MLDSA_NATIVE_MLDSA65_C_keypair_oqs(public_key, secret_key);
 #endif
 }
+#endif
 
+#if defined(OQS_ENABLE_SIG_ML_DSA_SIGN)
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key) {
 #if defined(OQS_ENABLE_SIG_ml_dsa_65_x86_64)
 #if defined(OQS_DIST_BUILD)
@@ -99,7 +112,9 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_sign(uint8_t *signature, size_t *signature_
 	return (OQS_STATUS) PQCP_MLDSA_NATIVE_MLDSA65_C_signature_oqs(signature, signature_len, message, message_len, NULL, 0, secret_key);
 #endif
 }
+#endif
 
+#if defined(OQS_ENABLE_SIG_ML_DSA_VERIFY)
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key) {
 #if defined(OQS_ENABLE_SIG_ml_dsa_65_x86_64)
 #if defined(OQS_DIST_BUILD)
@@ -125,6 +140,8 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_verify(const uint8_t *message, size_t messa
 	return (OQS_STATUS) PQCP_MLDSA_NATIVE_MLDSA65_C_verify_oqs(signature, signature_len, message, message_len, NULL, 0, public_key);
 #endif
 }
+#endif
+#if defined(OQS_ENABLE_SIG_ML_DSA_SIGN)
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *secret_key) {
 #if defined(OQS_ENABLE_SIG_ml_dsa_65_x86_64)
 #if defined(OQS_DIST_BUILD)
@@ -150,7 +167,9 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_sign_with_ctx_str(uint8_t *signature, size_
 	return (OQS_STATUS) PQCP_MLDSA_NATIVE_MLDSA65_C_signature_oqs(signature, signature_len, message, message_len, ctx_str, ctx_str_len, secret_key);
 #endif
 }
+#endif
 
+#if defined(OQS_ENABLE_SIG_ML_DSA_VERIFY)
 OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx_str, size_t ctx_str_len, const uint8_t *public_key) {
 #if defined(OQS_ENABLE_SIG_ml_dsa_65_x86_64)
 #if defined(OQS_DIST_BUILD)
@@ -176,4 +195,5 @@ OQS_API OQS_STATUS OQS_SIG_ml_dsa_65_verify_with_ctx_str(const uint8_t *message,
 	return (OQS_STATUS) PQCP_MLDSA_NATIVE_MLDSA65_C_verify_oqs(signature, signature_len, message, message_len, ctx_str, ctx_str_len, public_key);
 #endif
 }
+#endif
 #endif

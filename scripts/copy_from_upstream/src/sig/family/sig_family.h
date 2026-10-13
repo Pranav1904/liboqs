@@ -16,12 +16,22 @@
 {%- endif %}
 
 OQS_SIG *OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_new(void);
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key);
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key);
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key);
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx, size_t ctxlen, const uint8_t *secret_key);
-OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx, size_t ctxlen, const uint8_t *public_key);
-{% if 'alias_scheme' in scheme %}
+{% if disable_ops is defined %}#if defined({{ disable_ops['keypair'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_keypair(uint8_t *public_key, uint8_t *secret_key);
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *secret_key);
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *public_key);
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['sign'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_sign_with_ctx_str(uint8_t *signature, size_t *signature_len, const uint8_t *message, size_t message_len, const uint8_t *ctx, size_t ctxlen, const uint8_t *secret_key);
+{% if disable_ops is defined %}#endif
+#if defined({{ disable_ops['verify'].enable_option }})
+{% endif %}OQS_API OQS_STATUS OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_verify_with_ctx_str(const uint8_t *message, size_t message_len, const uint8_t *signature, size_t signature_len, const uint8_t *ctx, size_t ctxlen, const uint8_t *public_key);
+{% if disable_ops is defined %}#endif
+{% endif %}{% if 'alias_scheme' in scheme %}
 #define OQS_SIG_{{ family }}_{{ scheme['alias_scheme'] }}_length_public_key OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_public_key
 #define OQS_SIG_{{ family }}_{{ scheme['alias_scheme'] }}_length_secret_key OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_secret_key
 #define OQS_SIG_{{ family }}_{{ scheme['alias_scheme'] }}_length_signature OQS_SIG_{{ family }}_{{ scheme['scheme'] }}_length_signature
